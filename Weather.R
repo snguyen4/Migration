@@ -17,8 +17,13 @@ pacman::p_load(
   ggspatial, # north arrow and scale bar
   ggplot2, # make maps
   ncdf4, # handle netcdf files
-  readxl # handle excel files
-)
+  readxl,# handle excel files
+  openxlsx, # write excel files
+  ggthemes, # themes
+  circlize, #circular plot
+  SPEI, # SPI
+  gridExtra # grids for plots
+  )
 
 # 1) Loading data --------------------------------------------------------------
 
@@ -41,6 +46,9 @@ MY_sf$NAME_1[MY_sf$NAME_1 == "\t\nTerengganu"] <- "Terengganu"
 #Loading internal migration flow data
 migration <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/Migration.xlsx")
 
+#Year of the report in the excel files -> documented year is the preceding year
+migration$year = migration$year - 1
+
 
 # 2) Working with weather data -------------------------------------------------
 
@@ -56,18 +64,18 @@ pre_by_state <- terra::extract(MY_r, MY_sv, fun = "mean", na.rm = TRUE)
 #Deleting ID column
 pre_by_state <- select(pre_by_state, -ID)
 
-#Changing column names to date
-a <- 1901:2022
-b <- 1:12
-
-name <- c()
-
-for(k in 1:length(a)){
-  name <- append(name,
-                 paste0(a[k],"-",b))
-}
-
-colnames(pre_by_state) <- name
+# #Changing column names to date
+# a <- 1901:2022
+# b <- 1:12
+# 
+# name <- c()
+# 
+# for(k in 1:length(a)){
+#   name <- append(name,
+#                  paste0(a[k],"-",b))
+# }
+# 
+# colnames(pre_by_state) <- name
 
 #Changing row names to states.
 rownames(pre_by_state) <- MY_sf$NAME_1
@@ -75,36 +83,67 @@ rownames(pre_by_state) <- MY_sf$NAME_1
 #Inverting columns and rows
 pre_by_state <- pre_by_state %>%
   t() %>%
-  as.data.frame()
+  as.data.frame() 
 
-#Creation of a time series
-# Define the start and end dates
-start_date <- as.Date("1901-01-01")
-end_date <- as.Date("2019-12-01")
-
-# Create a sequence of dates
+#Adding date column
+start_date <- as.Date("1901-1-1")
+end_date <- as.Date("2022-12-1")
 dates <- seq(start_date, end_date, by = "month")
+dates <- format(dates, "%Y/%m")
+pre_by_state <- pre_by_state %>%
+  mutate(date = dates) %>%
+  relocate(date, .before = 1) 
 
-# Create an empty list to store time series objects
-ts_list <- list()
+row.names(pre_by_state) <- NULL # resetting row names to initial values.
 
-# Loop through each column
-for (i in 1:ncol(pre_by_state)) {
-  # Create time series for each column
-  ts_data <- ts(pre_by_state[, i], start = c(1901, 1), frequency = 12)
-  
-  # Set the time series name as the column name
-  names(ts_data) <- colnames(pre_by_state)[i]
-  
-  # Store the time series in the list
-  ts_list[[i]] <- ts_data
+#rounding to 2 decimals
+for (col in names(pre_by_state)) {
+  if (col != "date" && is.numeric(pre_by_state[[col]])) {
+    pre_by_state[, col] <- round(pre_by_state[, col], 2)
+  }
 }
 
-# Check the created time series
-print(ts_list)
+#Writing to xlsx
+write.xlsx(pre_by_state, "Data/pre_by_state.xlsx")
 
+# #Selecting Johor
+# pre_johor <- pre_by_state %>%
+#   select(date, Johor)
+# 
+# 
+# #Calculating SPI
+# spi_johor <- spi(pre_johor$Johor, 12)
 
-#Plotting weather
+#Calculating 12 month SPI for all 16 states
+
+long_data <- pre_by_state %>%
+  gather(key = "state", value = "precipitation", -date)
+
+spi12 <- spi(long_data$precipitation, 12)
+
+spi_my <- data.frame(matrix(spi12$fitted, ncol = 16))
+
+colnames(spi_my) <- MY_sf$NAME_1
+
+spi_my <- spi_my %>%
+  mutate(date = dates) %>%
+  relocate(date, .before = 1) 
+
+#Splitting years and months
+spi_my <- spi_my %>%
+  separate(date, into = c("year", "month"), sep = "/")
+
+# Yearly SPI calculation
+spi_year <- spi_my %>%
+  select(-month) %>%
+  group_by(year) %>%
+  summarise(across(everything(), ~mean(., na.rm = TRUE)))
+
+# Creating subset of the data for the years 2006-2019
+spi_year <- spi_year %>%
+  filter(year >= 2006 & year < 2020)
+
+#Plotting weather + shp
 plot(MY_r$pre_1)
 plot(MY_sv, add = TRUE)
 
@@ -116,27 +155,97 @@ ggplot(migration, aes(x = flow)) +
   labs(title = "Histogram of Migration Flows", x = "Flows", y = "Frequency") +
   theme_minimal()
 
+
+par(mfrow=c(2,2))
 #Creating an out-migration map.
-origin_flows <- aggregate(flow ~ origin, data = migration[migration$origin != migration$destination, ], FUN = sum)
+origin_flows <- aggregate(flow ~ origin + year, data = migration[migration$origin != migration$destination, ], FUN = sum)
 
-merged_data <- merge(MY_sf, origin_flows, by.x = "NAME_1", by.y = "origin", all.x = TRUE)
+merged_data_out <- merge(MY_sf, origin_flows, by.x = "NAME_1", by.y = "origin", all.x = TRUE)
 
-ggplot() +
-  geom_sf(data = merged_data, aes(fill = flow)) +
+
+#2006 out-migration map
+out_2006 <- merged_data_out %>%
+  filter(year == 2006)
+
+plot_out_2006 <- ggplot() +
+  geom_sf(data = out_2006, aes(fill = flow)) +
   labs(title = "Out-Migration by State",
-       subtitle = "2006-2019") +
+       subtitle = "2006") +
   scale_fill_gradient(low = "lightblue", high = "darkblue", na.value = NA) +
   theme_void()
+
+#2019 out-migration map
+out_2019 <- merged_data_out %>%
+  filter(year == 2019)
+
+plot_out_2019 <- ggplot() +
+  geom_sf(data = out_2019, aes(fill = flow)) +
+  labs(title = "Out-Migration by State",
+       subtitle = "2019") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", na.value = NA) +
+  theme_void()
+
+
+--------------------------------------------------------------------------------
+#Making a map showing the SPI in 2006
+# Merge SPI values with shapefile
+spi_long <- spi_year %>%
+  gather(key = "state", value = "SPI", -year)
+
+merged_data_spi <- merge(MY_sf, spi_long, by.x = "NAME_1", by.y = "state")
+
+# Create the map for 2006
+spi_2006 <- merged_data_spi %>%
+  filter(year == 2006)
+
+plot_spi_2006 <- ggplot() +
+  geom_sf(data = spi_2006, aes(fill = SPI), color = "black") +
+  labs(title = "SPI by State", subtitle = "2006") +
+  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray") +
+  labs(fill = "SPI Value") +
+  theme_bw()
+
+# Create the map for 2019
+spi_2019 <- merged_data_spi %>%
+  filter(year == 2019)
+
+plot_spi_2019 <- ggplot() +
+  geom_sf(data = spi_2019, aes(fill = SPI), color = "black") +
+  labs(title = "SPI by State", subtitle = "2019") +
+  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray") +
+  labs(fill = "SPI Value") +
+  theme_bw()
+
+--------------------------------------------------------------------------------
+  
+#Combining plots SPI + out-migration 2006
+combined_plot_out <- grid.arrange(plot_out_2006, plot_out_2019, ncol = 1)
+combined_plot_out
+
+#2019
+combined_plot_spi <- grid.arrange(plot_spi_2006, plot_spi_2019, ncol = 1)
+combined_plot_spi
+
+--------------------------------------------------------------------------------
+  
+#circular migration flow plot
+# Aggregate flows by origin and destination
+migration_flows <- aggregate(flow ~ origin + destination, data = migration, sum)
+
+migration_flows <- migration_flows %>%
+  filter(flow >= 20)
+
+# Create migration matrix
+migration_matrix <- with(migration_flows, table(origin, destination, flow))
+
+# Set up the plot
+circos.par(cell.padding = c(0.02, 0.02))
+circos.initialize(factors = unique(c(rownames(migration_matrix), colnames(migration_matrix))), xlim = c(0, 1))
+
+# Add the chord diagram
+chordDiagram(migration_matrix)
+
 
 #Checking flows from Selangor
 Selangor_flows <- migration[migration$origin != migration$destination, ] %>%
   filter(origin == "Selangor")
-
-# #Plotting precipitatin in Johor
-# johor_ts <- ts_list[[1]]  # Assuming Johor is the first element in the list
-# 
-# johor_df <- data.frame(time = time(johor_ts), value = as.vector(johor_ts))
-# 
-# ggplot(johor_df, aes(x = time, y = value)) +
-#   geom_line() +
-#   labs(x = "Year", y = "Value", title = "Time Series for Johor")
