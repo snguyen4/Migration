@@ -1,4 +1,6 @@
-#Loading libraries
+# 0) Loading libraries ---------------------------------------------------------
+#-------------------------------------------------------------------------------
+
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(
   stars, # spatiotemporal data handling
@@ -22,10 +24,14 @@ pacman::p_load(
   ggthemes, # themes
   circlize, #circular plot
   SPEI, # SPI
-  gridExtra # grids for plots
+  gridExtra, # grids for plots
+  lmtest, #for coeftest
+  sandwich, #for vcovHC
+  rgeos #geometric operations
   )
 
 # 1) Loading data --------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 #Loading NETCDF. Pre -> Precipitation (mm/month) 
 nc_pre <- nc_open("c:/Users/samue/Desktop/Dissertation/Migration/Data/cru_ts4.07.1901.2022.pre.dat.nc")
@@ -51,7 +57,9 @@ migration$year = migration$year - 1
 
 
 # 2) Working with weather data -------------------------------------------------
+#-------------------------------------------------------------------------------
 
+#Caclulating State averages
 #Cropping raster layers
 MY_r <- terra::crop(r, MY_sf)
 
@@ -63,19 +71,6 @@ pre_by_state <- terra::extract(MY_r, MY_sv, fun = "mean", na.rm = TRUE)
 
 #Deleting ID column
 pre_by_state <- select(pre_by_state, -ID)
-
-# #Changing column names to date
-# a <- 1901:2022
-# b <- 1:12
-# 
-# name <- c()
-# 
-# for(k in 1:length(a)){
-#   name <- append(name,
-#                  paste0(a[k],"-",b))
-# }
-# 
-# colnames(pre_by_state) <- name
 
 #Changing row names to states.
 rownames(pre_by_state) <- MY_sf$NAME_1
@@ -106,16 +101,11 @@ for (col in names(pre_by_state)) {
 #Writing to xlsx
 write.xlsx(pre_by_state, "Data/pre_by_state.xlsx")
 
-# #Selecting Johor
-# pre_johor <- pre_by_state %>%
-#   select(date, Johor)
-# 
-# 
-# #Calculating SPI
-# spi_johor <- spi(pre_johor$Johor, 12)
+#-------------------------------------------------------------------------------
 
 #Calculating 12 month SPI for all 16 states
 
+#Wide to long transformation
 long_data <- pre_by_state %>%
   gather(key = "state", value = "precipitation", -date)
 
@@ -133,30 +123,61 @@ spi_my <- spi_my %>%
 spi_my <- spi_my %>%
   separate(date, into = c("year", "month"), sep = "/")
 
-# Yearly SPI calculation
+#Yearly SPI calculation
 spi_year <- spi_my %>%
   select(-month) %>%
   group_by(year) %>%
   summarise(across(everything(), ~mean(., na.rm = TRUE)))
 
-# Creating subset of the data for the years 2006-2019
+#Creating subset of the data for the years 2006-2019
 spi_year <- spi_year %>%
   filter(year >= 2006 & year < 2020)
 
-#Plotting weather + shp
-plot(MY_r$pre_1)
-plot(MY_sv, add = TRUE)
+# #Plotting weather + shp
+# plot(MY_r$pre_1)
+# plot(MY_sv, add = TRUE)
 
-# 3) Descriptive statistics ---------------------------------------------------
-  
+# 3) Working with geographical data --------------------------------------------
+#-------------------------------------------------------------------------------
+
+#Distance between states
+#Converting geometries of the states into point gemoetries
+points_MY <- st_centroid(MY_sf)
+
+#Calculating distance matrix between the points
+dist_matrix <- st_distance(points_MY)
+
+dist_matrix <- dist_matrix %>%
+  as.data.frame()
+
+rownames(dist_matrix) <- MY_sf$NAME_1
+colnames(dist_matrix) <- MY_sf$NAME_1
+
+#-------------------------------------------------------------------------------
+
+#Borders
+#Check spatial relationships and create adjency matrix
+adj_matrix <- st_touches(MY_sf)
+
+adj_matrix <- adj_matrix %>%
+  as.data.frame()
+
+rownames(adj_matrix) <- MY_sf$NAME_1
+colnames(adj_matrix) <- MY_sf$NAME_1
+
+
+# 4) Working with sociodemographic data ----------------------------------------
+#-------------------------------------------------------------------------------
+
+# 5) Descriptive statistics ----------------------------------------------------
+#------------------------------------------------------------------------------- 
+ 
 #Creating histogram of migration flows
 ggplot(migration, aes(x = flow)) +
   geom_histogram(binwidth = 0.5, fill = "lightblue", color = "black") +
   labs(title = "Histogram of Migration Flows", x = "Flows", y = "Frequency") +
   theme_minimal()
 
-
-par(mfrow=c(2,2))
 #Creating an out-migration map.
 origin_flows <- aggregate(flow ~ origin + year, data = migration[migration$origin != migration$destination, ], FUN = sum)
 
@@ -186,7 +207,8 @@ plot_out_2019 <- ggplot() +
   theme_void()
 
 
---------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+
 #Making a map showing the SPI in 2006
 # Merge SPI values with shapefile
 spi_long <- spi_year %>%
@@ -216,7 +238,7 @@ plot_spi_2019 <- ggplot() +
   labs(fill = "SPI Value") +
   theme_bw()
 
---------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
   
 #Combining plots SPI + out-migration 2006
 combined_plot_out <- grid.arrange(plot_out_2006, plot_out_2019, ncol = 1)
@@ -226,7 +248,7 @@ combined_plot_out
 combined_plot_spi <- grid.arrange(plot_spi_2006, plot_spi_2019, ncol = 1)
 combined_plot_spi
 
---------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
   
 #circular migration flow plot
 # Aggregate flows by origin and destination
@@ -249,3 +271,20 @@ chordDiagram(migration_matrix)
 #Checking flows from Selangor
 Selangor_flows <- migration[migration$origin != migration$destination, ] %>%
   filter(origin == "Selangor")
+
+# 4) Regressions ---------------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+# Simple regression out-migration ~ SPI
+#Merge out-migration and spi_long
+origin_flows_lm <- origin_flows %>%
+  rename(state = origin)
+
+merged_out_spi <- merge(origin_flows_lm, spi_long, by = c("year", "state"))
+
+#Simple regression
+lm_out_spi <- lm(flow ~ SPI, data = merged_out_spi)
+summary(lm_out_spi)
+
+#With heteroscedasticity
+coeftest(lm_out_spi, vcov = vcovHC(lm_out_spi))
