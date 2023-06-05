@@ -141,7 +141,7 @@ spi_year <- spi_year %>%
 #-------------------------------------------------------------------------------
 
 #Distance between states
-#Converting geometries of the states into point gemoetries
+#Converting geometries of the states into point geometries
 points_MY <- st_centroid(MY_sf)
 
 #Calculating distance matrix between the points
@@ -153,17 +153,58 @@ dist_matrix <- dist_matrix %>%
 rownames(dist_matrix) <- MY_sf$NAME_1
 colnames(dist_matrix) <- MY_sf$NAME_1
 
+#Wide to long transformation
+dist_matrix$state <- row.names(dist_matrix)
+
+dist_matrix_long <- dist_matrix %>%
+  tidyr::pivot_longer(cols = -state, names_to = "destination", values_to = "distance") %>%
+  filter(state != destination)
+
+#Adding distance to migration data
+migration <- merge(migration, dist_matrix_long, by.x = c("origin", "destination"), by.y = c("state", "destination"), all.x = TRUE)
+
+#Replace NAs with 0s and converting meters to kilometers
+migration <- migration %>%
+  mutate(distance = ifelse(is.na(distance), 0, distance)) %>%
+  arrange(year) %>%
+  select(year, everything()) %>%
+  mutate(distance = round(distance / 1000, 2))
+
 #-------------------------------------------------------------------------------
 
 #Borders
-#Check spatial relationships and create adjency matrix
+#Check spatial relationships and create adjacency matrix
 adj_matrix <- st_touches(MY_sf)
 
 adj_matrix <- adj_matrix %>%
   as.data.frame()
 
-rownames(adj_matrix) <- MY_sf$NAME_1
-colnames(adj_matrix) <- MY_sf$NAME_1
+#changing numbers to state names
+state_names <- c(MY_sf$NAME_1)
+
+adj_matrix$row.id <- state_names[adj_matrix$row.id]
+adj_matrix$col.id <- state_names[adj_matrix$col.id]
+
+#Renaming columns
+adj_matrix <- adj_matrix %>%
+  rename("state" = row.id,
+         "bstate" = col.id)
+
+# Create an empty vector to store the border values
+migration$border <- numeric(nrow(migration))
+
+# Iterate over each row of migration data and assign the border value
+for (i in 1:nrow(migration)) {
+  origin <- migration$origin[i]
+  destination <- migration$destination[i]
+  
+  # Check if origin and destination share a border in adj_matrix
+  if (destination %in% adj_matrix[adj_matrix[,1] == origin, 2]) {
+    migration$border[i] <- 1  # Set border value to 1 if they share a border
+  } else {
+    migration$border[i] <- 0  # Set border value to 0 if they do not share a border
+  }
+}
 
 
 # 4) Working with sociodemographic data ----------------------------------------
