@@ -3,33 +3,17 @@
 
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(
-  stars, # spatiotemporal data handling
   raster, # raster data handling
   terra, # raster data handling
   sf, # vector data handling
-  dplyr, # data wrangling
-  stringr, # string manipulation
-  lubridate, # dates handling
-  data.table, # data wrangling
-  patchwork, # arranging figures
-  tigris, # county border
-  colorspace, # color scale
-  viridis, # arranging figures
-  tidyr, # reshape
-  ggspatial, # north arrow and scale bar
+  tidyr,# reshape
+  dplyr, #wrangling
   ggplot2, # make maps
-  ncdf4, # handle netcdf files
   readxl,# handle excel files
-  openxlsx, # write excel files
-  ggthemes, # themes
-  circlize, #circular plot
-  SPEI, # SPI
-  gridExtra, # grids for plots
   lmtest, #for coeftest
   sandwich, #for vcovHC
   rgeos, #geometric operations
   gravity #PPML estimator
-
   )
 
 # 1) Loading data --------------------------------------------------------------
@@ -233,11 +217,11 @@ migration <- migration %>%
 
 #Population
 #opening excel file
-pop <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/MY - pop.xlsx")
-
-#Merging with migration dataset
-migration <- migration %>%
-  left_join(pop, by = c("origin" = "state", "year"))
+# pop <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/MY - pop.xlsx")
+# 
+# #Merging with migration dataset
+# migration <- migration %>%
+#   left_join(pop, by = c("origin" = "state", "year"))
 
 
 # 5) Alternative datasets ------------------------------------------------------
@@ -380,6 +364,12 @@ migration <- migration %>%
 
 # 7) Preparation of the database for regressions -------------------------------
 #-------------------------------------------------------------------------------
+
+#Using inverse hyperbolic sine (IHS) to account for zeros- OLS------------------
+migration <- migration %>%
+  mutate(IHS_flow = log(flow + (flow^2 + 1)^0.5))
+
+
 #Fixed effects dummy creation---------------------------------------------------
 #origin fixed effects
 migration$origin_fe <- factor(migration$origin)
@@ -390,32 +380,114 @@ migration$destination_fe <- factor(migration$destination)
 #time fixed effects
 migration$year_fe <- factor(migration$year)
 
-#Using inverse hyperbolic sine (IHS) to account for zeros- OLS------------------
+#test fixed effects----
+# #bilateral FE
+# migration$bilateral_fe_test <- interaction(migration$origin, migration$destination)
+#
+# #origin-year FE
+# migration$origin_year_fe <- interaction(migration$origin, migration$year)
+# 
+# #destination-year FE
+# migration$destination_year_fe <- interaction(migration$destination, migration$year)
+
+# bilateral FE
 migration <- migration %>%
-  mutate(IHS_flow = log(flow + (flow^2 + 1)^0.5))
+  unite(temp, origin, destination, sep = "_") %>%
+  mutate(bilateral_fe = factor(temp)) %>%
+  separate(temp, into = c("origin", "destination"), sep = "_")
+
+# migration <- migration %>%
+#   mutate(dummy_variable = 1) %>%
+#   spread(bilateral_fe, dummy_variable, fill = 0)
+
+# origin year FE
+migration <- migration %>%
+  unite(temp, origin, year, sep = "_") %>%
+  mutate(origin_year_fe = factor(temp)) %>%
+  separate(temp, into = c("origin", "year"), sep = "_")
+
+# migration <- migration %>%
+#   mutate(dummy_variable = 1) %>%
+#   spread(origin_year_fe, dummy_variable, fill = 0)
+
+
+# destination year FE
+migration <- migration %>%
+  unite(temp, destination, year, sep = "_") %>%
+  mutate(destination_year_fe = factor(temp)) %>%
+  separate(temp, into = c("destination", "year"), sep = "_")
 
 
 # 8) Regressions ---------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
 #OLS----------------------------------------------------------------------------
-#Base specification
-lm1 <- lm(IHS_flow ~ SPEI + origin_fe:year_fe + origin_fe:destination_fe, 
+#Base specification - Time FE ----
+lm1 <- lm(IHS_flow ~ SPEI + year_fe, 
           data = migration)
 # Compute heteroscedastic-robust standard errors
-robust_se <- vcovHC(lm1, type = "HC1")
+robust_se_lm1 <- vcovHC(lm1, type = "HC1")
 #Regression using robust errors, clustered at the destination level
-lm1_robust <- coeftest(lm1, vcov. = robust_se, cluster = migration$destination)
-lm1_robust
+lm1_robust <- coeftest(lm1, vcov. = robust_se_lm1, cluster = migration$destination)
+head(lm1_robust)
+
+#Base specification - time + destination FE ----
+lm2 <- lm(IHS_flow ~ SPEI + year_fe + destination_fe, 
+          data = migration)
+# Compute heteroscedastic-robust standard errors
+robust_se_lm2 <- vcovHC(lm2, type = "HC1")
+#Regression using robust errors, clustered at the destination level
+lm2_robust <- coeftest(lm2, vcov. = robust_se_lm2, cluster = migration$destination)
+head(lm2_robust)
+
+#Base specification - time + destination + origin FE ----
+lm3 <- lm(IHS_flow ~ SPEI + year_fe + destination_fe + origin_fe, 
+          data = migration)
+# Compute heteroscedastic-robust standard errors
+robust_se_lm3 <- vcovHC(lm3, type = "HC1")
+#Regression using robust errors, clustered at the destination level
+lm3_robust <- coeftest(lm3, vcov. = robust_se_lm3, cluster = migration$destination)
+head(lm3_robust)
+
+#Base specification - time + destination + origin + origin-year FE ----
+lm4 <- lm(IHS_flow ~ SPEI + year_fe + destination_fe + origin_fe + origin_year_fe, 
+          data = migration)
+# Compute heteroscedastic-robust standard errors
+robust_se_lm4 <- vcovHC(lm4, type = "HC1")
+#Regression using robust errors, clustered at the destination level
+lm4_robust <- coeftest(lm4, vcov. = robust_se_lm4, cluster = migration$destination)
+head(lm4_robust)
+
+#Base specification - time + destination + origin + origin-year + origin-destination FE ----
+lm5 <- lm(IHS_flow ~ SPEI + year_fe + destination_fe + origin_fe + origin_year_fe + bilateral_fe, 
+          data = migration)
+# Compute heteroscedastic-robust standard errors
+robust_se_lm5 <- vcovHC(lm5, type = "HC1")
+#Regression using robust errors, clustered at the destination level
+lm5_robust <- coeftest(lm5, vcov. = robust_se_lm5, cluster = migration$destination)
+head(lm5_robust)
+
 
 
 #PPML --------------------------------------------------------------------------
-#Base specification
-ppml1 <- glm(IHS_flow ~ SPEI + origin_fe:year_fe + origin_fe:destination_fe, 
+#Base specification - using glm
+ppml1 <- glm(flow ~ SPEI + origin_year_fe + bilateral_fe, 
              data = migration,
              family = "quasipoisson")
 # Compute heteroscedastic-robust standard errors
-robust_se <- vcovHC(ppml1, type = "HC1")
+robust_se_ppml1 <- vcovHC(ppml1, type = "HC1")
 #Regression using robust errors, clustered at the destination level
-ppml1_robust <- coeftest(ppml1, vcov. = robust_se, cluster = migration$destination)
-ppml1_robust
+ppml1_robust <- coeftest(ppml1, vcov. = robust_se_ppml1, cluster = migration$destination)
+head(ppml1_robust)
+
+
+# #Using the ppml function -> similar results to using glm 
+# ppml2 <- ppml(dependent_variable = "flow",
+#               distance = "distance",
+#               additional_regressors = c("SPEI", "origin_year_fe", "bilateral_fe"),
+#               data = migration)
+# # Compute heteroscedastic-robust standard errors
+# robust_se_ppml2 <- vcovHC(ppml2, type = "HC1")
+# #Regression using robust errors, clustered at the destination level
+# ppml2_robust <- coeftest(ppml2, vcov. = robust_se_ppml2, cluster = migration$destination)
+# head(ppml2_robust)
