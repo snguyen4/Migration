@@ -46,7 +46,10 @@ migration$year = migration$year - 1
 #Removing migration to the same state. Removing years 2006 and 2007 because Putrajaya was part of Selangor in the data.
 migration <- migration %>%
   filter(origin != destination & year != "2006" & year != "2007")
-  
+
+#Loading disaster dataset - Note: I deleted the Peninsular malaysia row
+disasters <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/disasters.xlsx")
+
 
 # 2) Working with weather data -------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -84,13 +87,6 @@ SPEI_by_state <- SPEI_by_state %>%
 
 row.names(SPEI_by_state) <- NULL # resetting row names to initial values.
 
-#rounding to 2 decimals
-for (col in names(SPEI_by_state)) {
-  if (col != "date" && is.numeric(SPEI_by_state[[col]])) {
-    SPEI_by_state[, col] <- round(SPEI_by_state[, col], 2)
-  }
-}
-
 #-------------------------------------------------------------------------------
 
 # #Calculating 12 month SPI for all 16 states
@@ -108,10 +104,16 @@ for (col in names(SPEI_by_state)) {
 # spi_my <- spi_my %>%
 #   mutate(date = dates) %>%
 #   relocate(date, .before = 1) 
-# 
+ 
+
 #Splitting years and months
 SPEI_by_state <- SPEI_by_state %>%
   separate(date, into = c("year", "month"), sep = "/")
+
+#Alternative SPEI table with months instead of years.
+SPEI_by_state_2009 <- SPEI_by_state %>%
+  filter(year == 2019)
+
 
 #Yearly SPI calculation
 SPEI_by_state <- SPEI_by_state %>%
@@ -121,7 +123,7 @@ SPEI_by_state <- SPEI_by_state %>%
 
 #Creating subset of the data for the years 2006-2019
 SPEI_by_state <- SPEI_by_state %>%
-  filter(year >= 2008 & year < 2020)
+  filter(year >= 2003 & year < 2020)
 
 
 #Adding SPI at origin state to migration dataset
@@ -136,6 +138,36 @@ SPEI_by_state <- SPEI_by_state %>%
 #Merge datasets
 migration <- migration %>%
   left_join(SPEI_by_state, by = c("origin" = "state", "year"))
+
+# Disasters ----
+
+#Wrangling
+disasters <- disasters %>%
+  mutate(end_year = ifelse(`Start Year` != `End Year`, `End Year`, 0)) %>%
+  bind_rows(disasters %>%
+              filter(`Start Year` != `End Year`) %>%
+              mutate(`Start Year` = `End Year`, `End Year` = 0))
+
+disasters <- disasters %>%
+  select(Origin, `Start Year`) %>%
+  rename(origin = Origin, 
+         year = `Start Year`)
+
+# Number of disasters per year per origin
+disasters <- disasters %>%
+  group_by(origin, year) %>%
+  mutate(count = n()) %>%
+  summarize_all(mean) %>%
+  ungroup()
+  
+disasters <- disasters %>%
+  mutate(year = as.character(year))
+  
+# Left join the migration dataset with the disasters dataset
+migration <- migration %>%
+  left_join(disasters, by = c("origin", "year")) %>%
+  mutate(disasters = ifelse(is.na(disasters), 0, disasters))
+
 
 
 # 3) Working with geographical data --------------------------------------------
@@ -217,60 +249,103 @@ migration <- migration %>%
 
 #Population
 #opening excel file
-# pop <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/MY - pop.xlsx")
-# 
-# #Merging with migration dataset
-# migration <- migration %>%
-#   left_join(pop, by = c("origin" = "state", "year"))
+pop <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/MY - pop.xlsx")
+
+#Merging with migration dataset
+migration <- migration %>%
+  left_join(pop, by = c("origin" = "state", "year"))
 
 
 # 5) Alternative datasets ------------------------------------------------------
 #-------------------------------------------------------------------------------
 
-# #Kuala Lumpur + Putrajaya merged 
-# #Quickfix of renaming Putrajaya Kuala Lumpur
-# 
-# migration_wo_PJY <- migration %>%
-#   filter(origin != "Putrajaya" & destination != "Putrajaya")
-# 
-# #Adding GDP to the dataset
-# migration_wo_PJY <- migration_wo_PJY %>%
-#   left_join(GDP, by = c("origin" = "state", "year"))
-# 
-# migration_wo_PJY <- migration_wo_PJY %>%
-#   rename("wi" = "GDPpC")
-# 
-# migration_wo_PJY <- migration_wo_PJY %>%
-#   left_join(GDP, by = c("destination" = "state", "year"))
-# 
-# migration_wo_PJY <- migration_wo_PJY %>%
-#   rename("wj" = "GDPpC")
-# 
-# #Creating wage differential variables
-# migration_wo_PJY <- migration_wo_PJY %>%
-#   mutate(wdiff = log(wi / wj))
-# 
-# # Creating Niit
-# migration_wo_PJY <- migration_wo_PJY %>%
-#   group_by(origin, year) %>%
-#   mutate(Niit = pop - sum(flow))
-# 
-# #Creating lnmig
-# 
-# migration_wo_PJY <- migration_wo_PJY %>%
-#   mutate(lnmig = log(flow / Niit))
+
+
+# 6) Preparation of the database for regressions -------------------------------
+#-------------------------------------------------------------------------------
+
+#Using inverse hyperbolic sine (IHS) to account for zeros- OLS------------------
+migration <- migration %>%
+  mutate(IHS_flow = log(flow + (flow^2 + 1)^0.5))
+
+# IHS with migration rates ----
+#Creation of Niit
+migration <- migration %>%
+  group_by(origin, year) %>%
+  mutate(Niit = pop - sum(flow, na.rm = TRUE))
+
+#Dividing flow by population
+migration <- migration %>%
+  mutate(migrates = flow / Niit)
+
+#IHS
+migration <- migration %>%
+  mutate(IHS_flow_rates = log(migrates + (migrates^2 + 1)^0.5))
+
+
+#Fixed effects dummy creation---------------------------------------------------
+#origin fixed effects
+migration$origin_fe <- factor(migration$origin)
+
+#destination fixed effects
+migration$destination_fe <- factor(migration$destination)
+
+#time fixed effects
+migration$year_fe <- factor(migration$year)
+
+# # bilateral FE
+# migration <- migration %>%
+#   unite(temp, origin, destination, sep = "_") %>%
+#   mutate(bilateral_fe = factor(temp)) %>%
+#   separate(temp, into = c("origin", "destination"), sep = "_")
+
+# migration <- migration %>%
+#   mutate(dummy_variable = 1) %>%
+#   spread(bilateral_fe, dummy_variable, fill = 0)
+
+# origin year FE
+migration <- migration %>%
+  unite(temp, origin, year, sep = "_") %>%
+  mutate(origin_year_fe = factor(temp)) %>%
+  separate(temp, into = c("origin", "year"), sep = "_")
 
 
 
-# 6) Descriptive statistics ----------------------------------------------------
+
+# destination year FE
+migration <- migration %>%
+  unite(temp, destination, year, sep = "_") %>%
+  mutate(destination_year_fe = factor(temp)) %>%
+  separate(temp, into = c("destination", "year"), sep = "_")
+
+#Country pair FE
+migration <- migration %>%
+  rowwise() %>%
+  mutate(
+    country_pair = ifelse(origin < destination, paste0(origin, "_", destination), paste0(destination, "_", origin))
+  ) %>%
+  ungroup()
+
+migration <- migration %>%
+  mutate(bilateral_fe = factor(country_pair))
+
+# migration <- migration %>%
+#   mutate(dummy_variable = 1) %>%
+#   spread(bilateral_fe, dummy_variable, fill = 0)
+
+
+# 7) Descriptive statistics ----------------------------------------------------
 #------------------------------------------------------------------------------- 
- 
-# #Creating histogram of migration flows
-# ggplot(migration, aes(x = flow)) +
-#   geom_histogram(binwidth = 0.5, fill = "lightblue", color = "black") +
-#   labs(title = "Histogram of Migration Flows", x = "Flows", y = "Frequency") +
-#   theme_minimal()
-# 
+
+#Creating histogram of migration flows
+ggplot(migration, aes(x = flow)) +
+  geom_histogram(binwidth = 0.5, fill = "lightblue", color = "black") +
+  labs(title = "Histogram of Migration Flows", x = "Flows", y = "Frequency") +
+  theme_minimal()
+
+#Percentage of 0s
+mean(migration$flow == 0)
+
 # #Creating an out-migration map.
 # origin_flows <- aggregate(flow ~ origin + year, data = migration[migration$origin != migration$destination, ], FUN = sum)
 # 
@@ -329,7 +404,7 @@ migration <- migration %>%
 #   theme_bw()
 
 #-------------------------------------------------------------------------------
-  
+
 # #Combining plots SPI + out-migration 2006
 # combined_plot_out <- grid.arrange(plot_out_2006, plot_out_2019, ncol = 1)
 # combined_plot_out
@@ -338,89 +413,13 @@ migration <- migration %>%
 # combined_plot_spi <- grid.arrange(plot_spi_2006, plot_spi_2019, ncol = 1)
 # combined_plot_spi
 
-#-------------------------------------------------------------------------------
-  
-# #circular migration flow plot
-# # Aggregate flows by origin and destination
-# migration_flows <- aggregate(flow ~ origin + destination, data = migration, sum)
-# 
-# migration_flows <- migration_flows %>%
-#   filter(flow >= 20)
-# 
-# # Create migration matrix
-# migration_matrix <- with(migration_flows, table(origin, destination, flow))
-# 
-# # Set up the plot
-# circos.par(cell.padding = c(0.02, 0.02))
-# circos.initialize(factors = unique(c(rownames(migration_matrix), colnames(migration_matrix))), xlim = c(0, 1))
-# 
-# # Add the chord diagram
-# chordDiagram(migration_matrix)
-# 
-# 
-# #Checking flows from Selangor
-# Selangor_flows <- migration[migration$origin != migration$destination, ] %>%
-#   filter(origin == "Selangor")
 
-# 7) Preparation of the database for regressions -------------------------------
-#-------------------------------------------------------------------------------
-
-#Using inverse hyperbolic sine (IHS) to account for zeros- OLS------------------
-migration <- migration %>%
-  mutate(IHS_flow = log(flow + (flow^2 + 1)^0.5))
-
-
-#Fixed effects dummy creation---------------------------------------------------
-#origin fixed effects
-migration$origin_fe <- factor(migration$origin)
-
-#destination fixed effects
-migration$destination_fe <- factor(migration$destination)
-
-#time fixed effects
-migration$year_fe <- factor(migration$year)
-
-#test fixed effects----
-# #bilateral FE
-# migration$bilateral_fe_test <- interaction(migration$origin, migration$destination)
-#
-# #origin-year FE
-# migration$origin_year_fe <- interaction(migration$origin, migration$year)
-# 
-# #destination-year FE
-# migration$destination_year_fe <- interaction(migration$destination, migration$year)
-
-# bilateral FE
-migration <- migration %>%
-  unite(temp, origin, destination, sep = "_") %>%
-  mutate(bilateral_fe = factor(temp)) %>%
-  separate(temp, into = c("origin", "destination"), sep = "_")
-
-# migration <- migration %>%
-#   mutate(dummy_variable = 1) %>%
-#   spread(bilateral_fe, dummy_variable, fill = 0)
-
-# origin year FE
-migration <- migration %>%
-  unite(temp, origin, year, sep = "_") %>%
-  mutate(origin_year_fe = factor(temp)) %>%
-  separate(temp, into = c("origin", "year"), sep = "_")
-
-# migration <- migration %>%
-#   mutate(dummy_variable = 1) %>%
-#   spread(origin_year_fe, dummy_variable, fill = 0)
-
-
-# destination year FE
-migration <- migration %>%
-  unite(temp, destination, year, sep = "_") %>%
-  mutate(destination_year_fe = factor(temp)) %>%
-  separate(temp, into = c("destination", "year"), sep = "_")
 
 
 # 8) Regressions ---------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
+# 8.1) Independent variable - Migration numbers - origin time fixed effects-----
 #OLS----------------------------------------------------------------------------
 #Base specification - Time FE ----
 lm1 <- lm(IHS_flow ~ SPEI + year_fe, 
@@ -473,7 +472,9 @@ head(lm5_robust)
 #Base specification - using glm
 ppml1 <- glm(flow ~ SPEI + origin_year_fe + bilateral_fe, 
              data = migration,
-             family = "quasipoisson")
+             family = quasipoisson(link = "log"),
+             control = glm.control(epsilon = 1e-5, maxit = 100))
+
 # Compute heteroscedastic-robust standard errors
 robust_se_ppml1 <- vcovHC(ppml1, type = "HC1")
 #Regression using robust errors, clustered at the destination level
@@ -491,3 +492,45 @@ head(ppml1_robust)
 # #Regression using robust errors, clustered at the destination level
 # ppml2_robust <- coeftest(ppml2, vcov. = robust_se_ppml2, cluster = migration$destination)
 # head(ppml2_robust)
+
+
+# 8.2) Migration rates ---------------------------------------------------------
+#Data wrangling. Putrajaya in 2008 has no population information
+migration_rates <- migration %>%
+  filter(pop != 0)
+
+
+#OLS ---------------------------------------------------------------------------
+#Base specification - Time FE ----
+lm1_rates <- lm(IHS_flow_rates ~ SPEI + origin_fe + destination_year_fe + bilateral_fe, 
+          data = migration_rates)
+# Compute heteroscedastic-robust standard errors
+robust_se_lm1_rates <- vcovHC(lm1_rates, type = "HC1")
+#Regression using robust errors, clustered at the destination level
+lm1_robust_rates <- coeftest(lm1_rates, vcov. = robust_se_lm1_rates, cluster = migration$destination)
+head(lm1_robust_rates)
+
+#PPML --------------------------------------------------------------------------
+
+
+
+
+#Tests -------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+lm <- lm(IHS_flow_rates ~ SPEI + disasters + origin_fe + destination_year_fe,
+         data = migration_rates)
+# Compute heteroscedastic-robust standard errors
+robust_se_lm <- vcovHC(lm, type = "HC1")
+#Regression using robust errors, clustered at the destination level
+lm_robust <- coeftest(lm, vcov. = robust_se_lm, cluster = migration$destination)
+head(lm_robust)
+
+ppml <- glm(migrates ~ SPEI + disasters + origin_fe + destination_year_fe,
+            data = migration_rates,
+            family = quasipoisson(link = "log"),
+            control = glm.control(epsilon = 1e-5, maxit = 100))
+# Compute heteroscedastic-robust standard errors
+robust_se_ppml <- vcovHC(ppml, type = "HC1")
+#Regression using robust errors, clustered at the destination level
+ppml_robust <- coeftest(ppml, vcov. = robust_se_ppml, cluster = migration$destination)
+head(ppml_robust)
