@@ -733,7 +733,7 @@ head(ppml1_robust)
 # head(ppml2_robust)
 
 
-# 8.2) Migration rates ---------------------------------------------------------
+# 8.1.1) Migration rates ---------------------------------------------------------
 #Data wrangling. Putrajaya in 2008 has no population information
 migration_rates <- migration %>%
   filter(year != 2008)
@@ -741,20 +741,66 @@ migration_rates <- migration %>%
 
 #OLS ---------------------------------------------------------------------------
 #Base specification - Time FE ----
-lm1_rates <- lm(IHS_flow_rates ~ SPEI + origin_fe + destination_year_fe + bilateral_fe, 
+lm1 <- lm(IHS_flow_rates ~ SPEI + origin_fe + destination_year_fe + bilateral_fe, 
           data = migration_rates)
 # Compute heteroscedastic-robust standard errors
-robust_se_lm1_rates <- vcovHC(lm1_rates, type = "HC1")
+robust_se_lm1 <- vcovHC(lm1, type = "HC1")
 #Regression using robust errors, clustered at the destination level
-lm1_robust_rates <- coeftest(lm1_rates, vcov. = robust_se_lm1_rates, cluster = migration$destination)
+lm1_robust <- coeftest(lm1, vcov. = robust_se_lm1, cluster = migration$destination)
 head(lm1_robust_rates)
 
 #PPML --------------------------------------------------------------------------
 
 
+# 8.2) Beine and Parsons 2017 style --------------------------------------------
+# 8.2.1) Baseline --------------------------------------------------------------
+# OLS --------------------------------------------------------------------------
+lm1 <- lm(IHS_flow_rates ~ SPEI  + origin_fe + destination_year_fe,
+         data = migration_rates)
+# Compute heteroscedastic-robust standard errors
+robust_se_lm1 <- vcovHC(lm1, type = "HC1")
+#Regression using robust errors, clustered at the destination level
+lm1_robust <- coeftest(lm1, vcov. = robust_se_lm1, cluster = migration$destination)
+head(lm1_robust)
 
 
-#Tests -------------------------------------------------------------------------
+#PPML --------------------------------------------------------------------------
+
+ppml1 <- glm(migrates ~ SPEI + origin_fe + destination_year_fe,
+            data = migration_rates,
+            family = quasipoisson(link = "log"),
+            control = glm.control(epsilon = 1e-5, maxit = 100))
+# Compute heteroscedastic-robust standard errors
+robust_se_ppml1 <- vcovHC(ppml1, type = "HC1")
+#Regression using robust errors, clustered at the destination level
+ppml1_robust <- coeftest(ppml1, vcov. = robust_se_ppml1, cluster = migration$destination)
+head(ppml1_robust)
+
+# 8.2.1) Added interaction with borders
+# OLS --------------------------------------------------------------------------
+lm1 <- lm(IHS_flow_rates ~ SPEI  + SPEI:border + origin_fe + destination_year_fe,
+          data = migration_rates)
+# Compute heteroscedastic-robust standard errors
+robust_se_lm1 <- vcovHC(lm1, type = "HC1")
+#Regression using robust errors, clustered at the destination level
+lm1_robust <- coeftest(lm1, vcov. = robust_se_lm1, cluster = migration$destination)
+head(lm1_robust)
+
+
+#PPML --------------------------------------------------------------------------
+
+ppml1 <- glm(migrates ~ SPEI + SPEI:border + origin_fe + destination_year_fe,
+             data = migration_rates,
+             family = quasipoisson(link = "log"),
+             control = glm.control(epsilon = 1e-5, maxit = 100))
+# Compute heteroscedastic-robust standard errors
+robust_se_ppml1 <- vcovHC(ppml1, type = "HC1")
+#Regression using robust errors, clustered at the destination level
+ppml1_robust <- coeftest(ppml1, vcov. = robust_se_ppml1, cluster = migration$destination)
+ppml1_robust
+
+# 9) Tests -------------------------------------------------------------------------
+#OLS
 lm <- lm(IHS_flow_rates ~ frequency_flood + log(distance) + border + origin_fe + destination_year_fe,
          data = migration_rates)
 # Compute heteroscedastic-robust standard errors
@@ -763,6 +809,7 @@ robust_se_lm <- vcovHC(lm, type = "HC1")
 lm_robust <- coeftest(lm, vcov. = robust_se_lm, cluster = migration$destination)
 head(lm_robust)
 
+#PPML
 ppml <- glm(migrates ~ frequency_flood + log(distance) + border + origin_fe + destination_year_fe,
             data = migration_rates,
             family = quasipoisson(link = "log"),
