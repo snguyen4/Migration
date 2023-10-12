@@ -12,7 +12,7 @@ pacman::p_load(
   lmtest, #for coeftest
   sandwich, #for vcovHC
   rgeos, #geometric operations
-  gravity #PPML estimator
+  fixest #regressions with fixed effects
   )
 
 # 1) Loading data --------------------------------------------------------------
@@ -243,30 +243,30 @@ migration <- migration %>%
 
 #Flood frequency ----
 #value of 1 if SPEI  >= 1 in a month and zero otherwise
-frequency_flood <- SPEI_by_state_month %>%
+frequency_floods <- SPEI_by_state_month %>%
   mutate(count = ifelse(SPEI >= 1, 1, 0))
 
 
-frequency_flood <- frequency_flood %>%
+frequency_floods <- frequency_floods %>%
   group_by(state, year) %>%
   summarize(count = sum(count))
 
 # Create a new variable 'frequency_flood' with the sum of counts for the 5 preceding years
 #If I only want the 5 years preceding the current year, modify the 5 to 6 and subtract it by count
-frequency_flood <- frequency_flood %>%
+frequency_floods <- frequency_floods %>%
   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
   group_by(state) %>%      # Group by 'state'
-  mutate(frequency_flood = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+  mutate(frequency_floods = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
   ungroup()
 
 # Removing count
-frequency_flood <- frequency_flood %>%
+frequency_floods <- frequency_floods %>%
   select(-count) %>%
   mutate(year = as.numeric(year))
 
 #Adding it to the migration dataset
 migration <- migration %>%
-  left_join(frequency_flood, by = c("origin" = "state", "year"))
+  left_join(frequency_floods, by = c("origin" = "state", "year"))
 
 #Maximal duration --------------------------------------------------------------
 #max duration in nb of months of a drought or flood in the 5 years preceding migration
@@ -535,38 +535,38 @@ migration <- migration %>%
   mutate(IHS_flow_rates = log(migrates + (migrates^2 + 1)^0.5))
 
 
-#Fixed effects dummy creation---------------------------------------------------
-#origin fixed effects
-migration$origin_fe <- factor(migration$origin)
-
-#destination fixed effects
-migration$destination_fe <- factor(migration$destination)
-
-#time fixed effects
-migration$year_fe <- factor(migration$year)
-
-# origin year FE
-migration <- migration %>%
-  unite(temp, origin, year, sep = "_") %>%
-  mutate(origin_year_fe = factor(temp)) %>%
-  separate(temp, into = c("origin", "year"), sep = "_")
-
-# destination year FE
-migration <- migration %>%
-  unite(temp, destination, year, sep = "_") %>%
-  mutate(destination_year_fe = factor(temp)) %>%
-  separate(temp, into = c("destination", "year"), sep = "_")
-
-#Country pair FE
-migration <- migration %>%
-  rowwise() %>%
-  mutate(
-    country_pair = ifelse(origin < destination, paste0(origin, "_", destination), paste0(destination, "_", origin))
-  ) %>%
-  ungroup()
-
-migration <- migration %>%
-  mutate(bilateral_fe = factor(country_pair))
+# #Fixed effects dummy creation---------------------------------------------------
+# #origin fixed effects
+# migration$origin_fe <- factor(migration$origin)
+# 
+# #destination fixed effects
+# migration$destination_fe <- factor(migration$destination)
+# 
+# #time fixed effects
+# migration$year_fe <- factor(migration$year)
+# 
+# # origin year FE
+# migration <- migration %>%
+#   unite(temp, origin, year, sep = "_") %>%
+#   mutate(origin_year_fe = factor(temp)) %>%
+#   separate(temp, into = c("origin", "year"), sep = "_")
+# 
+# # destination year FE
+# migration <- migration %>%
+#   unite(temp, destination, year, sep = "_") %>%
+#   mutate(destination_year_fe = factor(temp)) %>%
+#   separate(temp, into = c("destination", "year"), sep = "_")
+# 
+# #Country pair FE
+# migration <- migration %>%
+#   rowwise() %>%
+#   mutate(
+#     country_pair = ifelse(origin < destination, paste0(origin, "_", destination), paste0(destination, "_", origin))
+#   ) %>%
+#   ungroup()
+# 
+# migration <- migration %>%
+#   mutate(bilateral_fe = factor(country_pair))
 
 # #Spread to check dummies
 # migration <- migration %>%
@@ -619,32 +619,40 @@ mean(migration$flow == 0)
 #   theme_void()
 
 
+#Maps --------------------------------------------------------------------------
 
-# #Making a map showing the SPI in 2006
-# # Merge SPI values with shapefile
-# merged_data_spi <- merge(MY_sf, spi_long, by.x = "NAME_1", by.y = "state")
-# 
-# # Create the map for 2006
-# spi_2006 <- merged_data_spi %>%
-#   filter(year == 2006)
-# 
-# plot_spi_2006 <- ggplot() +
-#   geom_sf(data = spi_2006, aes(fill = SPI), color = "black") +
-#   labs(title = "SPI by State", subtitle = "2006") +
-#   scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray") +
-#   labs(fill = "SPI Value") +
-#   theme_bw()
-# 
-# # Create the map for 2019
-# spi_2019 <- merged_data_spi %>%
-#   filter(year == 2019)
-# 
-# plot_spi_2019 <- ggplot() +
-#   geom_sf(data = spi_2019, aes(fill = SPI), color = "black") +
-#   labs(title = "SPI by State", subtitle = "2019") +
-#   scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray") +
-#   labs(fill = "SPI Value") +
-#   theme_bw()
+#Grid + SF in 2019-01 ----
+
+# Plot the cropped raster with the shapefile
+plot(MY_r[[1400]])
+plot(MY_sv, add = TRUE)
+
+
+#Making a map showing the SPEI in 2008----
+# Merge SPEI values with shapefile
+merged_data_spei <- merge(MY_sf, SPEI_by_state, by.x = "NAME_1", by.y = "state")
+
+# Create the map for 2008
+spei_2008 <- merged_data_spei %>%
+  filter(year == 2008)
+
+plot_spei_2008 <- ggplot() +
+  geom_sf(data = spei_2008, aes(fill = SPEI), color = "black") +
+  labs(title = "SPEI by State", subtitle = "2008") +
+  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray") +
+  labs(fill = "SPEI Value") +
+  theme_bw()
+
+# Create the map for 2019----
+spei_2019 <- merged_data_spei %>%
+  filter(year == 2019)
+
+plot_spei_2019 <- ggplot() +
+  geom_sf(data = spei_2019, aes(fill = SPEI), color = "black") +
+  labs(title = "SPEI by State", subtitle = "2019") +
+  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray") +
+  labs(fill = "SPEI Value") +
+  theme_bw()
 
 
 # #Combining plots SPI + out-migration 2006
@@ -660,162 +668,54 @@ mean(migration$flow == 0)
 
 # 8) Regressions ---------------------------------------------------------------
 
-# 8.1) Independent variable - Migration numbers - origin time fixed effects-----
-#OLS----------------------------------------------------------------------------
-#Base specification - Time FE ----
-lm1 <- lm(IHS_flow ~ SPEI + year_fe, 
-          data = migration)
-# Compute heteroscedastic-robust standard errors
-robust_se_lm1 <- vcovHC(lm1, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-lm1_robust <- coeftest(lm1, vcov. = robust_se_lm1, cluster = migration$destination)
-head(lm1_robust)
-
-#Base specification - time + destination FE ----
-lm2 <- lm(IHS_flow ~ SPEI + year_fe + destination_fe, 
-          data = migration)
-# Compute heteroscedastic-robust standard errors
-robust_se_lm2 <- vcovHC(lm2, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-lm2_robust <- coeftest(lm2, vcov. = robust_se_lm2, cluster = migration$destination)
-head(lm2_robust)
-
-#Base specification - time + destination + origin FE ----
-lm3 <- lm(IHS_flow ~ SPEI + year_fe + destination_fe + origin_fe, 
-          data = migration)
-# Compute heteroscedastic-robust standard errors
-robust_se_lm3 <- vcovHC(lm3, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-lm3_robust <- coeftest(lm3, vcov. = robust_se_lm3, cluster = migration$destination)
-head(lm3_robust)
-
-#Base specification - time + destination + origin + origin-year FE ----
-lm4 <- lm(IHS_flow ~ SPEI + year_fe + destination_fe + origin_fe + origin_year_fe, 
-          data = migration)
-# Compute heteroscedastic-robust standard errors
-robust_se_lm4 <- vcovHC(lm4, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-lm4_robust <- coeftest(lm4, vcov. = robust_se_lm4, cluster = migration$destination)
-head(lm4_robust)
-
-#Base specification - time + destination + origin + origin-year + origin-destination FE ----
-lm5 <- lm(IHS_flow ~ SPEI + year_fe + destination_fe + origin_fe + origin_year_fe + bilateral_fe, 
-          data = migration)
-# Compute heteroscedastic-robust standard errors
-robust_se_lm5 <- vcovHC(lm5, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-lm5_robust <- coeftest(lm5, vcov. = robust_se_lm5, cluster = migration$destination)
-head(lm5_robust)
-
-#PPML --------------------------------------------------------------------------
-#Base specification - using glm ----
-ppml1 <- glm(flow ~ SPEI + origin_year_fe + bilateral_fe, 
-             data = migration,
-             family = quasipoisson(link = "log"),
-             control = glm.control(epsilon = 1e-5, maxit = 100))
-
-# Compute heteroscedastic-robust standard errors
-robust_se_ppml1 <- vcovHC(ppml1, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-ppml1_robust <- coeftest(ppml1, vcov. = robust_se_ppml1, cluster = migration$destination)
-head(ppml1_robust)
-
-
-# #Using the ppml function -> similar results to using glm 
-# ppml2 <- ppml(dependent_variable = "flow",
-#               distance = "distance",
-#               additional_regressors = c("SPEI", "origin_year_fe", "bilateral_fe"),
-#               data = migration)
-# # Compute heteroscedastic-robust standard errors
-# robust_se_ppml2 <- vcovHC(ppml2, type = "HC1")
-# #Regression using robust errors, clustered at the destination level
-# ppml2_robust <- coeftest(ppml2, vcov. = robust_se_ppml2, cluster = migration$destination)
-# head(ppml2_robust)
-
-
-# 8.1.1) Migration rates ---------------------------------------------------------
+# 8.1) Migration rates ---------------------------------------------------------
 #Data wrangling. Putrajaya in 2008 has no population information
 migration_rates <- migration %>%
   filter(year != 2008)
 
 
-#OLS ---------------------------------------------------------------------------
-#Base specification - Time FE ----
-lm1 <- lm(IHS_flow_rates ~ SPEI + origin_fe + destination_year_fe + bilateral_fe, 
-          data = migration_rates)
-# Compute heteroscedastic-robust standard errors
-robust_se_lm1 <- vcovHC(lm1, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-lm1_robust <- coeftest(lm1, vcov. = robust_se_lm1, cluster = migration$destination)
-head(lm1_robust_rates)
+#OLS ----
+#Gradually adding fixed effects
+lm1 <- feols(IHS_flow_rates ~ SPEI | csw0(year, origin, destination, destination^year, origin^destination), migration_rates)
+etable(lm1, cluster = "destination")
 
-#PPML --------------------------------------------------------------------------
+#Base specs
+lm2 <- feols(IHS_flow_rates ~ sw(SPEI, frequency, max_duration, magnitude) | origin + destination^year, migration_rates)
+etable(lm2, cluster = "destination")
 
+#Droughts
+lm3 <- feols(IHS_flow_rates ~ sw(frequency_droughts, max_duration_droughts, magnitude_droughts) | origin + destination^year, migration_rates)
+etable(lm3, cluster = "destination")
 
-# 8.2) Beine and Parsons 2017 style --------------------------------------------
-# 8.2.1) Baseline --------------------------------------------------------------
-# OLS --------------------------------------------------------------------------
-lm1 <- lm(IHS_flow_rates ~ SPEI  + origin_fe + destination_year_fe,
-         data = migration_rates)
-# Compute heteroscedastic-robust standard errors
-robust_se_lm1 <- vcovHC(lm1, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-lm1_robust <- coeftest(lm1, vcov. = robust_se_lm1, cluster = migration$destination)
-head(lm1_robust)
+#Floods
+lm4 <- feols(IHS_flow_rates ~ sw(frequency_floods, max_duration_floods, magnitude_floods) | origin + destination^year, migration_rates)
+etable(lm4, cluster = "destination")
 
+#PPML ----
+#Gradually adding fixed effects
+g1 <- fepois(migrates ~ SPEI | csw0(year, origin, destination, destination^year, origin^destination), migration_rates)
+etable(g1, cluster = "destination")
 
-#PPML --------------------------------------------------------------------------
+#Base specs
+g2 <- fepois(migrates ~ sw(SPEI, frequency, max_duration, magnitude) | origin + destination^year, migration_rates)
+etable(g2, cluster = "destination")
 
-ppml1 <- glm(migrates ~ SPEI + origin_fe + destination_year_fe,
-            data = migration_rates,
-            family = quasipoisson(link = "log"),
-            control = glm.control(epsilon = 1e-5, maxit = 100))
-# Compute heteroscedastic-robust standard errors
-robust_se_ppml1 <- vcovHC(ppml1, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-ppml1_robust <- coeftest(ppml1, vcov. = robust_se_ppml1, cluster = migration$destination)
-head(ppml1_robust)
+#Droughts
+g3 <- fepois(migrates ~ sw(frequency_droughts, max_duration_droughts, magnitude_droughts) | origin + destination^year, migration_rates)
+etable(g3, cluster = "destination")
 
-# 8.2.1) Added interaction with borders
-# OLS --------------------------------------------------------------------------
-lm1 <- lm(IHS_flow_rates ~ SPEI  + SPEI:border + origin_fe + destination_year_fe,
-          data = migration_rates)
-# Compute heteroscedastic-robust standard errors
-robust_se_lm1 <- vcovHC(lm1, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-lm1_robust <- coeftest(lm1, vcov. = robust_se_lm1, cluster = migration$destination)
-head(lm1_robust)
-
-
-#PPML --------------------------------------------------------------------------
-
-ppml1 <- glm(migrates ~ SPEI + SPEI:border + origin_fe + destination_year_fe,
-             data = migration_rates,
-             family = quasipoisson(link = "log"),
-             control = glm.control(epsilon = 1e-5, maxit = 100))
-# Compute heteroscedastic-robust standard errors
-robust_se_ppml1 <- vcovHC(ppml1, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-ppml1_robust <- coeftest(ppml1, vcov. = robust_se_ppml1, cluster = migration$destination)
-ppml1_robust
+#Floods
+g4 <- fepois(migrates ~ sw(frequency_floods, max_duration_floods, magnitude_floods) | origin + destination^year, migration_rates)
+etable(g4, cluster = "destination")
 
 # 9) Tests -------------------------------------------------------------------------
-#OLS
-lm <- lm(IHS_flow_rates ~ frequency_flood + log(distance) + border + origin_fe + destination_year_fe,
-         data = migration_rates)
-# Compute heteroscedastic-robust standard errors
-robust_se_lm <- vcovHC(lm, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-lm_robust <- coeftest(lm, vcov. = robust_se_lm, cluster = migration$destination)
-head(lm_robust)
 
-#PPML
-ppml <- glm(migrates ~ frequency_flood + log(distance) + border + origin_fe + destination_year_fe,
-            data = migration_rates,
-            family = quasipoisson(link = "log"),
-            control = glm.control(epsilon = 1e-5, maxit = 100))
-# Compute heteroscedastic-robust standard errors
-robust_se_ppml <- vcovHC(ppml, type = "HC1")
-#Regression using robust errors, clustered at the destination level
-ppml_robust <- coeftest(ppml, vcov. = robust_se_ppml, cluster = migration$destination)
-head(ppml_robust)
+#fixest test ----
+lm <- feols(IHS_flow_rates ~ SPEI + log(distance) + border | origin + destination^year, migration_rates)
+summary(lm, cluster = "destination")
+
+g <- fepois(migrates ~ frequency + log(distance)| origin + destination^year, migration_rates)
+summary(gravity, cluster = "destination")
+gravity$fixef_removed
+
+
