@@ -7,13 +7,14 @@ pacman::p_load(
   sf, # vector data handling
   tidyr,# reshape
   dplyr, #wrangling
-  ggplot2, # make maps
-  readxl,# handle excel files
+  ggplot2, # making maps
+  readxl,# handling excel files
   lmtest, #for coeftest
   sandwich, #for vcovHC
   rgeos, #geometric operations
   fixest, #regressions with fixed effects
-  gridExtra #combining plots
+  gridExtra, #combining plots
+  lubridate
   )
 
 # 1) Loading data --------------------------------------------------------------
@@ -106,6 +107,13 @@ row.names(SPEI_by_state) <- NULL # resetting row names to initial values.
 #Splitting years and months
 SPEI_by_state <- SPEI_by_state %>%
   separate(date, into = c("year", "month"), sep = "/")
+
+#Lagging the years by 6 months. In the migration survey, migration flows are from
+#July to June next year.
+SPEI_by_state <- SPEI_by_state %>%
+  mutate(year = as.integer(year), month = as.integer(month)) %>%
+  mutate(year = ifelse(month <= 6, year - 1, year))
+
 
 #Alternative SPEI table with months instead of years.
 SPEI_by_state_2009 <- SPEI_by_state %>%
@@ -913,6 +921,30 @@ plot_spei_2019 <- ggplot() +
 # combined_plot_spi
 
 # 7.3) Weather variables -------------------------------------------------------
+
+#SPEI plot ----
+plot_spei <- SPEI_by_state %>%
+  group_by(year) %>%
+  filter(year > 2006) %>%
+  summarise(SPEI = mean(SPEI))
+
+# Create a new variable 'color' to distinguish positive and negative values
+plot_spei <- plot_spei %>%
+  mutate(color = ifelse(SPEI >= 0, "Positive", "Negative"))
+
+# Define the color palette for positive and negative values
+color_palette <- c("Positive" = "blue", "Negative" = "red")
+
+# Create the bar plot
+plot_spei <- ggplot(data = plot_spei, aes(x = year, y = SPEI, fill = color)) +
+  geom_col() +
+  labs(title = "SPEI",
+       x = "Year") +
+  theme_minimal() +
+  guides(fill = "none")  # Remove the legend
+
+plot_spei
+
 #Plots of frequencies ----
 #Droughts
 plot_frequency_droughts <- frequency_droughts %>%
