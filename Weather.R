@@ -761,6 +761,13 @@ pop <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/MY - pop.x
 migration <- migration %>%
   left_join(pop, by = c("origin" = "state", "year"))
 
+#Urbanisation rate
+#opening excel file
+urban <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/Urbanisation2010.xlsx")
+
+#Merging with migration dataset
+migration <- migration %>%
+  left_join(urban, by = c("origin" = "state"))
 
 # 5) Alternative datasets ------------------------------------------------------
 
@@ -781,7 +788,7 @@ migration <- migration %>%
 
 #Dividing flow by population
 migration <- migration %>%
-  mutate(migrates = flow / Niit)
+  mutate(migrates = flow * 100000 / Niit)
 
 #IHS
 migration <- migration %>%
@@ -1033,85 +1040,99 @@ combined <- grid.arrange(plot_frequency_droughts, plot_frequency_floods,
 
 #Gradually adding fixed effects
 lm1 <- feols(IHS_flow_rates ~ SPEI | csw0(year, origin, destination, destination^year, origin^destination), migration_rates)
-etable(lm1, cluster = "destination")
+etable(lm1, cluster = "origin", tex = TRUE)
 
 #Testing for bilateral FE and adding distance
 lm2 <- feols(IHS_flow_rates ~ csw0(SPEI, log(distance), border) | csw0(origin + destination^year, origin^destination), migration_rates)
-etable(lm2, cluster = "destination")
+etable(lm2, cluster = "origin", tex = TRUE)
 
 #8.1) Regressions with SPEI > +- 1
 #OLS ----
 #Base specs
 lm1 <- feols(IHS_flow_rates ~ sw(SPEI, frequency, max_duration, magnitude) | origin + destination^year, migration_rates)
-etable(lm1, cluster = "destination")
+etable(lm1, vcov = "hetero", tex = TRUE)
 
 #Droughts
 lm2 <- feols(IHS_flow_rates ~ sw(frequency_droughts, max_duration_droughts, magnitude_droughts) | origin + destination^year, migration_rates)
-etable(lm2, cluster = "destination")
+etable(lm2, vcov = "hetero", tex = TRUE)
 
 #Floods
 lm3 <- feols(IHS_flow_rates ~ sw(frequency_floods, max_duration_floods, magnitude_floods) | origin + destination^year, migration_rates)
-etable(lm3, cluster = "destination")
+etable(lm3, vcov = "hetero", tex = TRUE)
 
 #With bilateral FE ----
 
 #Base specs
 lm1 <- feols(IHS_flow_rates ~ sw(SPEI, frequency, max_duration, magnitude) | origin + destination^year + origin^destination, migration_rates)
-etable(lm1, cluster = "destination")
+etable(lm1, cluster = "origin", tex = TRUE)
 
 #Droughts
 lm2 <- feols(IHS_flow_rates ~ sw(frequency_droughts, max_duration_droughts, magnitude_droughts) | origin + destination^year + origin^destination, migration_rates)
-etable(lm2, cluster = "destination")
+etable(lm2, cluster = "origin", tex = TRUE)
 
 #Floods
 lm3 <- feols(IHS_flow_rates ~ sw(frequency_floods, max_duration_floods, magnitude_floods) | origin + destination^year + origin^destination, migration_rates)
-etable(lm3, cluster = "destination")
+etable(lm3, cluster = "origin", tex = TRUE)
 
 #PPML ----
 #Gradually adding fixed effects
 g1 <- fepois(migrates ~ SPEI | csw0(year, origin, destination, destination^year, origin^destination), migration_rates)
-etable(g1, cluster = "destination")
+etable(g1, vcov = "hetero")
 
 #Base specs
 g2 <- fepois(migrates ~ sw(SPEI, frequency, max_duration, magnitude) | origin + destination^year, migration_rates)
-etable(g2, cluster = "destination")
+etable(g2, vcov = "hetero", tex = TRUE)
 
 #Droughts
 g3 <- fepois(migrates ~ sw(frequency_droughts, max_duration_droughts, magnitude_droughts) | origin + destination^year, migration_rates)
-etable(g3, cluster = "destination")
+etable(g3, vcov = "hetero", tex = TRUE)
 
 #Floods
 g4 <- fepois(migrates ~ sw(frequency_floods, max_duration_floods, magnitude_floods) | origin + destination^year, migration_rates)
-etable(g4, cluster = "destination")
+etable(g4, vcov = "hetero", tex = TRUE)
 
 # 8.2) "Intense variations"
 
 #OLS----
 #Base specs
 lm1 <- feols(IHS_flow_rates ~ sw(SPEI, frequency_intense, max_duration_intense, magnitude_intense) | origin + destination^year, migration_rates)
-etable(lm1, cluster = "destination")
+etable(lm1, vcov = "hetero", tex = TRUE)
 
 #Droughts
 lm2 <- feols(IHS_flow_rates ~ sw(frequency_droughts_intense, max_duration_droughts_intense, magnitude_droughts_intense) | origin + destination^year, migration_rates)
-etable(lm2, cluster = "destination")
+etable(lm2, vcov = "hetero", tex = TRUE)
 
 #Floods
 lm3 <- feols(IHS_flow_rates ~ sw(frequency_floods_intense, max_duration_floods_intense, magnitude_floods_intense) | origin + destination^year, migration_rates)
-etable(lm3, cluster = "destination")
+etable(lm3, vcov = "hetero", tex = TRUE)
 
 #PPML ----
 #Base specs
 g1 <- fepois(migrates ~ sw(SPEI, frequency_intense, max_duration_intense, magnitude_intense) | origin + destination^year, migration_rates)
-etable(g1, cluster = "destination")
+etable(g1, vcov = "hetero", tex = TRUE)
 
 #Droughts
 g2 <- fepois(migrates ~ sw(frequency_droughts_intense, max_duration_droughts_intense, magnitude_droughts_intense) | origin + destination^year, migration_rates)
-etable(g2, cluster = "destination")
+etable(g2, vcov = "hetero", tex = TRUE)
 
 #Floods
 g3 <- fepois(migrates ~ sw(frequency_floods_intense, max_duration_floods_intense, magnitude_floods_intense) | origin + destination^year, migration_rates)
-etable(g3, cluster = "destination")
+etable(g3, vcov = "hetero", tex = TRUE)
 
+#Controlling for costs
+g1 <- fepois(migrates ~ sw(SPEI, frequency_intense, max_duration_intense, magnitude_intense) 
+             + log(distance) + border| origin + destination^year, migration_rates)
+etable(g1, vcov = "hetero", tex = TRUE)
+
+#Droughts
+g2 <- fepois(migrates ~ sw(frequency_droughts_intense, max_duration_droughts_intense, magnitude_droughts_intense)
+             + log(distance) + border| origin + destination^year, migration_rates)
+etable(g2, vcov = "hetero", tex = TRUE)
+
+#Floods
+g3 <- fepois(migrates ~ sw(frequency_floods_intense, max_duration_floods_intense, magnitude_floods_intense) 
+             + log(distance) + border| origin + destination^year, migration_rates)
+etable(g3, vcov = "hetero", tex = TRUE)
 
 # 9) Tests -------------------------------------------------------------------------
 
@@ -1119,8 +1140,8 @@ etable(g3, cluster = "destination")
 lm <- feols(IHS_flow ~ SPEI + log(distance) | origin^year + destination, migration)
 summary(lm, cluster = "destination")
 
-g <- fepois(migrates ~ frequency + log(distance)| origin + destination^year, migration_rates)
-summary(g, cluster = "destination")
+g <- fepois(migrates ~ frequency_floods_intense + frequency_floods_intense:urban| origin + destination^year, migration_rates)
+etable(g, vcov = "hetero")
 
 
 
