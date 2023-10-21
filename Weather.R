@@ -45,7 +45,8 @@ migration$year = migration$year - 1
 
 #Removing migration to the same state. Removing years 2006 and 2007 because Putrajaya was part of Selangor in the data.
 migration <- migration %>%
-  filter(origin != destination & year != "2006" & year != "2007")
+  filter(origin != destination,
+         year >= 2010 & year < 2020)
 
 #Loading disaster dataset - Note: I deleted the Peninsular malaysia row
 disasters <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/disasters.xlsx")
@@ -116,7 +117,7 @@ SPEI_by_state <- SPEI_by_state %>%
 
 
 #Alternative SPEI table with months instead of years.
-SPEI_by_state_2009 <- SPEI_by_state %>%
+SPEI_by_state_2019 <- SPEI_by_state %>%
   filter(year == 2019)
 
 #Monthly SPEI for frequency calculations ----
@@ -124,7 +125,7 @@ SPEI_by_state_month <- SPEI_by_state
 
 #Creating subset of the data for the years 2006-2019
 SPEI_by_state_month <- SPEI_by_state_month %>%
-  filter(year >= 2003 & year < 2020)
+  filter(year >= 2000 & year < 2020)
 
 
 #Adding SPEI at origin state to migration dataset
@@ -137,18 +138,15 @@ SPEI_by_state_month <- SPEI_by_state_month %>%
   mutate(year = as.numeric(year),
          month = as.numeric(month))
 
-#Yearly SPEI calculation ----
+#Yearly SPEI calculation ---- Keeping the 12 month June SPEI
 SPEI_by_state <- SPEI_by_state %>%
-  select(-month) %>%
-  group_by(year) %>%
-  summarise(across(everything(), ~mean(., na.rm = TRUE)))
-
-#Creating subset of the data for the years 2006-2019
-SPEI_by_state <- SPEI_by_state %>%
-  filter(year >= 2003 & year < 2020)
+  filter(month == 6,
+         year >= 2010 & year < 2020) %>%
+  select(- month)
 
 
-#Adding SPEI at origin state to migration dataset
+
+#Adding SPEI at origin state to migration dataset ----
 #Transformation to long format
 SPEI_by_state <- SPEI_by_state %>%
   gather(key = "state", value = "SPEI", -year)
@@ -162,523 +160,523 @@ migration <- migration %>%
   left_join(SPEI_by_state, by = c("origin" = "state", "year"))
 
 # 2.1) Weather variables -------------------------------------------------------
-# Disasters --------------------------------------------------------------------
-#Wrangling
-disasters <- disasters %>%
-  mutate(end_year = ifelse(`Start Year` != `End Year`, `End Year`, 0)) %>%
-  bind_rows(disasters %>%
-              filter(`Start Year` != `End Year`) %>%
-              mutate(`Start Year` = `End Year`, `End Year` = 0))
-
-disasters <- disasters %>%
-  select(Origin, `Start Year`) %>%
-  rename(origin = Origin, 
-         year = `Start Year`)
-
-# Number of disasters per year per origin
-disasters <- disasters %>%
-  group_by(origin, year) %>%
-  mutate(disasters = n()) %>%
-  summarize_all(mean) %>%
-  ungroup()
-  
-disasters <- disasters %>%
-  mutate(year = as.numeric(year))
-  
-# Left join the migration dataset with the disasters dataset
-migration <- migration %>%
-  left_join(disasters, by = c("origin", "year"))
-
-#Replacing Nas by 0
-migration <- migration %>%
-  mutate(disasters = ifelse(is.na(disasters), 0, disasters))
-
-
-# 2.1.1) Variation: SPEI > +- 1 ------------------------------------------------
-
-#Frequency ---------------------------------------------------------------------
-
-#value of 1 if SPEI > +-1 in a month and zero otherwise
-frequency <- SPEI_by_state_month %>%
-  mutate(count = ifelse(abs(SPEI) >= 1, 1, 0))
-
-
-frequency <- frequency %>%
-  group_by(state, year) %>%
-  summarize(count = sum(count))
-
-# Create a new variable 'frequency' with the sum of counts for the 5 preceding years
-#If I only want the 5 years preceding the current year, modify the 5 to 6 and substract it by count
-frequency <- frequency %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(frequency = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  ungroup()
-
-# Removing count
-frequency <- frequency %>%
-  select(-count) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(frequency, by = c("origin" = "state", "year"))
-
-#Drought frequency ----
-#value of 1 if SPEI < -1 in a month and zero otherwise
-frequency_droughts <- SPEI_by_state_month %>%
-  mutate(count = ifelse(SPEI <= -1, 1, 0))
-
-
-frequency_droughts <- frequency_droughts %>%
-  group_by(state, year) %>%
-  summarize(count = sum(count))
-
-# Create a new variable 'frequency_droughts' with the sum of counts for the 5 preceding years
-#If I only want the 5 years preceding the current year, modify the 5 to 6 and subtract it by count
-frequency_droughts <- frequency_droughts %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(frequency_droughts = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  ungroup()
-
-# Removing count
-frequency_droughts <- frequency_droughts %>%
-  select(-count) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(frequency_droughts, by = c("origin" = "state", "year"))
-
-
-#Flood frequency ----
-#value of 1 if SPEI  >= 1 in a month and zero otherwise
-frequency_floods <- SPEI_by_state_month %>%
-  mutate(count = ifelse(SPEI >= 1, 1, 0))
-
-
-frequency_floods <- frequency_floods %>%
-  group_by(state, year) %>%
-  summarize(count = sum(count))
-
-# Create a new variable 'frequency_flood' with the sum of counts for the 5 preceding years
-#If I only want the 5 years preceding the current year, modify the 5 to 6 and subtract it by count
-frequency_floods <- frequency_floods %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(frequency_floods = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  ungroup()
-
-# Removing count
-frequency_floods <- frequency_floods %>%
-  select(-count) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(frequency_floods, by = c("origin" = "state", "year"))
-
-#Maximal duration --------------------------------------------------------------
-#max duration in nb of months of a drought or flood in the 5 years preceding migration
-duration <- SPEI_by_state_month %>%
-  mutate(count = ifelse(abs(SPEI) >= 1, 1, 0))
-
-#Counting the number of consecutive 1s
-duration <- duration %>%
-  group_by(state) %>%
-  mutate(duration = sequence(rle(count)$lengths) * count) %>%
-  ungroup()
-
-#Keeping the highest value per year
-duration <- duration %>%
-  group_by(state, year) %>%
-  slice(which.max(duration)) %>%
-  select(year, state, duration)
-
-# Calculate the rolling maximum duration over the past 5 years
-duration <- duration %>%
-  arrange(state, year) %>%
-  select(state, year, duration) %>%
-  group_by(state) %>%
-  mutate(
-    max_duration = zoo::rollapply(duration, width = 5, FUN = max, fill = NA, align = "right")
-  ) %>%
-  ungroup()
-
-# Removing duration
-duration <- duration %>%
-  select(-duration) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(duration, by = c("origin" = "state", "year"))
-
-#Max duration droughts ----
-duration_droughts <- SPEI_by_state_month %>%
-  mutate(count = ifelse(SPEI <= -1, 1, 0))
-
-#Counting the number of consecutive 1s
-duration_droughts <- duration_droughts %>%
-  group_by(state) %>%
-  mutate(duration_droughts = sequence(rle(count)$lengths) * count) %>%
-  ungroup()
-
-#Keeping the highest value per year
-duration_droughts <- duration_droughts %>%
-  group_by(state, year) %>%
-  slice(which.max(duration_droughts)) %>%
-  select(year, state, duration_droughts)
-
-# Calculate the rolling maximum duration_droughts over the past 5 years
-duration_droughts <- duration_droughts %>%
-  arrange(state, year) %>%
-  select(state, year, duration_droughts) %>%
-  group_by(state) %>%
-  mutate(
-    max_duration_droughts = zoo::rollapply(duration_droughts, width = 5, FUN = max, fill = NA, align = "right")
-  ) %>%
-  ungroup()
-
-# Removing duration_droughts
-duration_droughts <- duration_droughts %>%
-  select(-duration_droughts) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(duration_droughts, by = c("origin" = "state", "year"))
-
-# Max duration floods ----
-duration_floods <- SPEI_by_state_month %>%
-  mutate(count = ifelse(SPEI >= 1, 1, 0))
-
-#Counting the number of consecutive 1s
-duration_floods <- duration_floods %>%
-  group_by(state) %>%
-  mutate(duration_floods = sequence(rle(count)$lengths) * count) %>%
-  ungroup()
-
-#Keeping the highest value per year
-duration_floods <- duration_floods %>%
-  group_by(state, year) %>%
-  slice(which.max(duration_floods)) %>%
-  select(year, state, duration_floods)
-
-# Calculate the rolling maximum duration_floods over the past 5 years
-duration_floods <- duration_floods %>%
-  arrange(state, year) %>%
-  select(state, year, duration_floods) %>%
-  group_by(state) %>%
-  mutate(
-    max_duration_floods = zoo::rollapply(duration_floods, width = 5, FUN = max, fill = NA, align = "right")
-  ) %>%
-  ungroup()
-
-# Removing duration_floods
-duration_floods <- duration_floods %>%
-  select(-duration_floods) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(duration_floods, by = c("origin" = "state", "year"))
-
-# Magnitude --------------------------------------------------------------------
-#sum per year of SPEI
-magnitude <- SPEI_by_state_month %>%
-  group_by(state, year) %>%
-  summarise(sum_spei = sum(ifelse(abs(SPEI) >= 1, abs(SPEI), 0)))
-
-#sum of the preceding 5 years
-magnitude <- magnitude %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(magnitude = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  select(-sum_spei) %>%
-  ungroup()
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(magnitude, by = c("origin" = "state", "year"))
-
-# Magnitude droughts ----
-magnitude_droughts <- SPEI_by_state_month %>%
-  group_by(state, year) %>%
-  summarise(sum_spei = sum(ifelse(SPEI <= -1, abs(SPEI), 0)))
-
-#sum of the preceding 5 years
-magnitude_droughts <- magnitude_droughts %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(magnitude_droughts = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  select(-sum_spei) %>%
-  ungroup()
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(magnitude_droughts, by = c("origin" = "state", "year"))
-
-
-# Magnitude floods ----
-magnitude_floods <- SPEI_by_state_month %>%
-  group_by(state, year) %>%
-  summarise(sum_spei = sum(ifelse(SPEI >= 1, abs(SPEI), 0)))
-
-#sum of the preceding 5 years
-magnitude_floods <- magnitude_floods %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(magnitude_floods = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  select(-sum_spei) %>%
-  ungroup()
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(magnitude_floods, by = c("origin" = "state", "year"))
-
-# 2.1.2) Variation: SPEI > +-1.5 -------------------------------------------------------
-
-#value of 1 if SPEI > +-1.5 in a month and zero otherwise
-frequency_intense <- SPEI_by_state_month %>%
-  mutate(count = ifelse(abs(SPEI) >= 1.5, 1, 0))
-
-
-frequency_intense <- frequency_intense %>%
-  group_by(state, year) %>%
-  summarize(count = sum(count))
-
-# Create a new variable 'frequency_intense' with the sum of counts for the 5 preceding years
-#If I only want the 5 years preceding the current year, modify the 5 to 6 and substract it by count
-frequency_intense <- frequency_intense %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(frequency_intense = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  ungroup()
-
-# Removing count
-frequency_intense <- frequency_intense %>%
-  select(-count) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(frequency_intense, by = c("origin" = "state", "year"))
-
-#Drought frequency ----
-#value of 1 if SPEI < -1 in a month and zero otherwise
-frequency_droughts_intense <- SPEI_by_state_month %>%
-  mutate(count = ifelse(SPEI <= -1.5, 1, 0))
-
-
-frequency_droughts_intense <- frequency_droughts_intense %>%
-  group_by(state, year) %>%
-  summarize(count = sum(count))
-
-# Create a new variable 'frequency_droughts_intense' with the sum of counts for the 5 preceding years
-#If I only want the 5 years preceding the current year, modify the 5 to 6 and subtract it by count
-frequency_droughts_intense <- frequency_droughts_intense %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(frequency_droughts_intense = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  ungroup()
-
-# Removing count
-frequency_droughts_intense <- frequency_droughts_intense %>%
-  select(-count) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(frequency_droughts_intense, by = c("origin" = "state", "year"))
-
-
-#Flood frequency ----
-#value of 1 if SPEI  >= 1 in a month and zero otherwise
-frequency_floods_intense <- SPEI_by_state_month %>%
-  mutate(count = ifelse(SPEI >= 1.5, 1, 0))
-
-
-frequency_floods_intense <- frequency_floods_intense %>%
-  group_by(state, year) %>%
-  summarize(count = sum(count))
-
-# Create a new variable 'frequency_flood' with the sum of counts for the 5 preceding years
-#If I only want the 5 years preceding the current year, modify the 5 to 6 and subtract it by count
-frequency_floods_intense <- frequency_floods_intense %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(frequency_floods_intense = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  ungroup()
-
-# Removing count
-frequency_floods_intense <- frequency_floods_intense %>%
-  select(-count) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(frequency_floods_intense, by = c("origin" = "state", "year"))
-
-#Maximal duration --------------------------------------------------------------
-#max duration in nb of months of a drought or flood in the 5 years preceding migration
-duration_intense <- SPEI_by_state_month %>%
-  mutate(count = ifelse(abs(SPEI) >= 1.5, 1, 0))
-
-#Counting the number of consecutive 1s
-duration_intense <- duration_intense %>%
-  group_by(state) %>%
-  mutate(duration_intense = sequence(rle(count)$lengths) * count) %>%
-  ungroup()
-
-#Keeping the highest value per year
-duration_intense <- duration_intense %>%
-  group_by(state, year) %>%
-  slice(which.max(duration_intense)) %>%
-  select(year, state, duration_intense)
-
-# Calculate the rolling maximum duration over the past 5 years
-duration_intense <- duration_intense %>%
-  arrange(state, year) %>%
-  select(state, year, duration_intense) %>%
-  group_by(state) %>%
-  mutate(
-    max_duration_intense = zoo::rollapply(duration_intense, width = 5, FUN = max, fill = NA, align = "right")
-  ) %>%
-  ungroup()
-
-# Removing duration
-duration_intense <- duration_intense %>%
-  select(-duration_intense) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(duration_intense, by = c("origin" = "state", "year"))
-
-#Max duration droughts ----
-duration_droughts_intense <- SPEI_by_state_month %>%
-  mutate(count = ifelse(SPEI <= -1.5, 1, 0))
-
-#Counting the number of consecutive 1s
-duration_droughts_intense <- duration_droughts_intense %>%
-  group_by(state) %>%
-  mutate(duration_droughts_intense = sequence(rle(count)$lengths) * count) %>%
-  ungroup()
-
-#Keeping the highest value per year
-duration_droughts_intense <- duration_droughts_intense %>%
-  group_by(state, year) %>%
-  slice(which.max(duration_droughts_intense)) %>%
-  select(year, state, duration_droughts_intense)
-
-# Calculate the rolling maximum duration_droughts_intense over the past 5 years
-duration_droughts_intense <- duration_droughts_intense %>%
-  arrange(state, year) %>%
-  select(state, year, duration_droughts_intense) %>%
-  group_by(state) %>%
-  mutate(
-    max_duration_droughts_intense = zoo::rollapply(duration_droughts_intense, width = 5, FUN = max, fill = NA, align = "right")
-  ) %>%
-  ungroup()
-
-# Removing duration_droughts_intense
-duration_droughts_intense <- duration_droughts_intense %>%
-  select(-duration_droughts_intense) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(duration_droughts_intense, by = c("origin" = "state", "year"))
-
-# Max duration floods ----
-duration_floods_intense <- SPEI_by_state_month %>%
-  mutate(count = ifelse(SPEI >= 1.5, 1, 0))
-
-#Counting the number of consecutive 1s
-duration_floods_intense <- duration_floods_intense %>%
-  group_by(state) %>%
-  mutate(duration_floods_intense = sequence(rle(count)$lengths) * count) %>%
-  ungroup()
-
-#Keeping the highest value per year
-duration_floods_intense <- duration_floods_intense %>%
-  group_by(state, year) %>%
-  slice(which.max(duration_floods_intense)) %>%
-  select(year, state, duration_floods_intense)
-
-# Calculate the rolling maximum duration_floods_intense over the past 5 years
-duration_floods_intense <- duration_floods_intense %>%
-  arrange(state, year) %>%
-  select(state, year, duration_floods_intense) %>%
-  group_by(state) %>%
-  mutate(
-    max_duration_floods_intense = zoo::rollapply(duration_floods_intense, width = 5, FUN = max, fill = NA, align = "right")
-  ) %>%
-  ungroup()
-
-# Removing duration_floods_intense
-duration_floods_intense <- duration_floods_intense %>%
-  select(-duration_floods_intense) %>%
-  mutate(year = as.numeric(year))
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(duration_floods_intense, by = c("origin" = "state", "year"))
-
-# Magnitude --------------------------------------------------------------------
-#sum per year of SPEI
-magnitude_intense <- SPEI_by_state_month %>%
-  group_by(state, year) %>%
-  summarise(sum_spei = sum(ifelse(abs(SPEI) >= 1.5, abs(SPEI), 0)))
-
-#sum of the preceding 5 years
-magnitude_intense <- magnitude_intense %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(magnitude_intense = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  select(-sum_spei) %>%
-  ungroup()
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(magnitude_intense, by = c("origin" = "state", "year"))
-
-# Magnitude droughts ----
-magnitude_droughts_intense <- SPEI_by_state_month %>%
-  group_by(state, year) %>%
-  summarise(sum_spei = sum(ifelse(SPEI <= -1.5, abs(SPEI), 0)))
-
-#sum of the preceding 5 years
-magnitude_droughts_intense <- magnitude_droughts_intense %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(magnitude_droughts_intense = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  select(-sum_spei) %>%
-  ungroup()
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(magnitude_droughts_intense, by = c("origin" = "state", "year"))
-
-
-# Magnitude floods ----
-magnitude_floods_intense <- SPEI_by_state_month %>%
-  group_by(state, year) %>%
-  summarise(sum_spei = sum(ifelse(SPEI >= 1.5, abs(SPEI), 0)))
-
-#sum of the preceding 5 years
-magnitude_floods_intense <- magnitude_floods_intense %>%
-  arrange(state, year) %>%  # Sort the data by 'state' and 'year'
-  group_by(state) %>%      # Group by 'state'
-  mutate(magnitude_floods_intense = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
-  select(-sum_spei) %>%
-  ungroup()
-
-#Adding it to the migration dataset
-migration <- migration %>%
-  left_join(magnitude_floods_intense, by = c("origin" = "state", "year"))
+# # Disasters --------------------------------------------------------------------
+# #Wrangling
+# disasters <- disasters %>%
+#   mutate(end_year = ifelse(`Start Year` != `End Year`, `End Year`, 0)) %>%
+#   bind_rows(disasters %>%
+#               filter(`Start Year` != `End Year`) %>%
+#               mutate(`Start Year` = `End Year`, `End Year` = 0))
+# 
+# disasters <- disasters %>%
+#   select(Origin, `Start Year`) %>%
+#   rename(origin = Origin, 
+#          year = `Start Year`)
+# 
+# # Number of disasters per year per origin
+# disasters <- disasters %>%
+#   group_by(origin, year) %>%
+#   mutate(disasters = n()) %>%
+#   summarize_all(mean) %>%
+#   ungroup()
+#   
+# disasters <- disasters %>%
+#   mutate(year = as.numeric(year))
+#   
+# # Left join the migration dataset with the disasters dataset
+# migration <- migration %>%
+#   left_join(disasters, by = c("origin", "year"))
+# 
+# #Replacing Nas by 0
+# migration <- migration %>%
+#   mutate(disasters = ifelse(is.na(disasters), 0, disasters))
+# 
+# 
+# # 2.1.1) Variation: SPEI > +- 1 ------------------------------------------------
+# 
+# #Frequency ---------------------------------------------------------------------
+# 
+# #value of 1 if SPEI > +-1 in a month and zero otherwise
+# frequency <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(abs(SPEI) >= 1, 1, 0))
+# 
+# 
+# frequency <- frequency %>%
+#   group_by(state, year) %>%
+#   summarize(count = sum(count))
+# 
+# # Create a new variable 'frequency' with the sum of counts for the 5 preceding years
+# #If I only want the 5 years preceding the current year, modify the 5 to 6 and substract it by count
+# frequency <- frequency %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(frequency = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   ungroup()
+# 
+# # Removing count
+# frequency <- frequency %>%
+#   select(-count) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(frequency, by = c("origin" = "state", "year"))
+# 
+# #Drought frequency ----
+# #value of 1 if SPEI < -1 in a month and zero otherwise
+# frequency_droughts <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(SPEI <= -1, 1, 0))
+# 
+# 
+# frequency_droughts <- frequency_droughts %>%
+#   group_by(state, year) %>%
+#   summarize(count = sum(count))
+# 
+# # Create a new variable 'frequency_droughts' with the sum of counts for the 5 preceding years
+# #If I only want the 5 years preceding the current year, modify the 5 to 6 and subtract it by count
+# frequency_droughts <- frequency_droughts %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(frequency_droughts = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   ungroup()
+# 
+# # Removing count
+# frequency_droughts <- frequency_droughts %>%
+#   select(-count) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(frequency_droughts, by = c("origin" = "state", "year"))
+# 
+# 
+# #Flood frequency ----
+# #value of 1 if SPEI  >= 1 in a month and zero otherwise
+# frequency_floods <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(SPEI >= 1, 1, 0))
+# 
+# 
+# frequency_floods <- frequency_floods %>%
+#   group_by(state, year) %>%
+#   summarize(count = sum(count))
+# 
+# # Create a new variable 'frequency_flood' with the sum of counts for the 5 preceding years
+# #If I only want the 5 years preceding the current year, modify the 5 to 6 and subtract it by count
+# frequency_floods <- frequency_floods %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(frequency_floods = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   ungroup()
+# 
+# # Removing count
+# frequency_floods <- frequency_floods %>%
+#   select(-count) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(frequency_floods, by = c("origin" = "state", "year"))
+# 
+# #Maximal duration --------------------------------------------------------------
+# #max duration in nb of months of a drought or flood in the 5 years preceding migration
+# duration <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(abs(SPEI) >= 1, 1, 0))
+# 
+# #Counting the number of consecutive 1s
+# duration <- duration %>%
+#   group_by(state) %>%
+#   mutate(duration = sequence(rle(count)$lengths) * count) %>%
+#   ungroup()
+# 
+# #Keeping the highest value per year
+# duration <- duration %>%
+#   group_by(state, year) %>%
+#   slice(which.max(duration)) %>%
+#   select(year, state, duration)
+# 
+# # Calculate the rolling maximum duration over the past 5 years
+# duration <- duration %>%
+#   arrange(state, year) %>%
+#   select(state, year, duration) %>%
+#   group_by(state) %>%
+#   mutate(
+#     max_duration = zoo::rollapply(duration, width = 5, FUN = max, fill = NA, align = "right")
+#   ) %>%
+#   ungroup()
+# 
+# # Removing duration
+# duration <- duration %>%
+#   select(-duration) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(duration, by = c("origin" = "state", "year"))
+# 
+# #Max duration droughts ----
+# duration_droughts <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(SPEI <= -1, 1, 0))
+# 
+# #Counting the number of consecutive 1s
+# duration_droughts <- duration_droughts %>%
+#   group_by(state) %>%
+#   mutate(duration_droughts = sequence(rle(count)$lengths) * count) %>%
+#   ungroup()
+# 
+# #Keeping the highest value per year
+# duration_droughts <- duration_droughts %>%
+#   group_by(state, year) %>%
+#   slice(which.max(duration_droughts)) %>%
+#   select(year, state, duration_droughts)
+# 
+# # Calculate the rolling maximum duration_droughts over the past 5 years
+# duration_droughts <- duration_droughts %>%
+#   arrange(state, year) %>%
+#   select(state, year, duration_droughts) %>%
+#   group_by(state) %>%
+#   mutate(
+#     max_duration_droughts = zoo::rollapply(duration_droughts, width = 5, FUN = max, fill = NA, align = "right")
+#   ) %>%
+#   ungroup()
+# 
+# # Removing duration_droughts
+# duration_droughts <- duration_droughts %>%
+#   select(-duration_droughts) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(duration_droughts, by = c("origin" = "state", "year"))
+# 
+# # Max duration floods ----
+# duration_floods <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(SPEI >= 1, 1, 0))
+# 
+# #Counting the number of consecutive 1s
+# duration_floods <- duration_floods %>%
+#   group_by(state) %>%
+#   mutate(duration_floods = sequence(rle(count)$lengths) * count) %>%
+#   ungroup()
+# 
+# #Keeping the highest value per year
+# duration_floods <- duration_floods %>%
+#   group_by(state, year) %>%
+#   slice(which.max(duration_floods)) %>%
+#   select(year, state, duration_floods)
+# 
+# # Calculate the rolling maximum duration_floods over the past 5 years
+# duration_floods <- duration_floods %>%
+#   arrange(state, year) %>%
+#   select(state, year, duration_floods) %>%
+#   group_by(state) %>%
+#   mutate(
+#     max_duration_floods = zoo::rollapply(duration_floods, width = 5, FUN = max, fill = NA, align = "right")
+#   ) %>%
+#   ungroup()
+# 
+# # Removing duration_floods
+# duration_floods <- duration_floods %>%
+#   select(-duration_floods) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(duration_floods, by = c("origin" = "state", "year"))
+# 
+# # Magnitude --------------------------------------------------------------------
+# #sum per year of SPEI
+# magnitude <- SPEI_by_state_month %>%
+#   group_by(state, year) %>%
+#   summarise(sum_spei = sum(ifelse(abs(SPEI) >= 1, abs(SPEI), 0)))
+# 
+# #sum of the preceding 5 years
+# magnitude <- magnitude %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(magnitude = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   select(-sum_spei) %>%
+#   ungroup()
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(magnitude, by = c("origin" = "state", "year"))
+# 
+# # Magnitude droughts ----
+# magnitude_droughts <- SPEI_by_state_month %>%
+#   group_by(state, year) %>%
+#   summarise(sum_spei = sum(ifelse(SPEI <= -1, abs(SPEI), 0)))
+# 
+# #sum of the preceding 5 years
+# magnitude_droughts <- magnitude_droughts %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(magnitude_droughts = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   select(-sum_spei) %>%
+#   ungroup()
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(magnitude_droughts, by = c("origin" = "state", "year"))
+# 
+# 
+# # Magnitude floods ----
+# magnitude_floods <- SPEI_by_state_month %>%
+#   group_by(state, year) %>%
+#   summarise(sum_spei = sum(ifelse(SPEI >= 1, abs(SPEI), 0)))
+# 
+# #sum of the preceding 5 years
+# magnitude_floods <- magnitude_floods %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(magnitude_floods = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   select(-sum_spei) %>%
+#   ungroup()
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(magnitude_floods, by = c("origin" = "state", "year"))
+# 
+# # 2.1.2) Variation: SPEI > +-1.5 -------------------------------------------------------
+# 
+# #value of 1 if SPEI > +-1.5 in a month and zero otherwise
+# frequency_intense <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(abs(SPEI) >= 1.5, 1, 0))
+# 
+# 
+# frequency_intense <- frequency_intense %>%
+#   group_by(state, year) %>%
+#   summarize(count = sum(count))
+# 
+# # Create a new variable 'frequency_intense' with the sum of counts for the 5 preceding years
+# #If I only want the 5 years preceding the current year, modify the 5 to 6 and substract it by count
+# frequency_intense <- frequency_intense %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(frequency_intense = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   ungroup()
+# 
+# # Removing count
+# frequency_intense <- frequency_intense %>%
+#   select(-count) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(frequency_intense, by = c("origin" = "state", "year"))
+# 
+# #Drought frequency ----
+# #value of 1 if SPEI < -1 in a month and zero otherwise
+# frequency_droughts_intense <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(SPEI <= -1.5, 1, 0))
+# 
+# 
+# frequency_droughts_intense <- frequency_droughts_intense %>%
+#   group_by(state, year) %>%
+#   summarize(count = sum(count))
+# 
+# # Create a new variable 'frequency_droughts_intense' with the sum of counts for the 5 preceding years
+# #If I only want the 5 years preceding the current year, modify the 5 to 6 and subtract it by count
+# frequency_droughts_intense <- frequency_droughts_intense %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(frequency_droughts_intense = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   ungroup()
+# 
+# # Removing count
+# frequency_droughts_intense <- frequency_droughts_intense %>%
+#   select(-count) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(frequency_droughts_intense, by = c("origin" = "state", "year"))
+# 
+# 
+# #Flood frequency ----
+# #value of 1 if SPEI  >= 1 in a month and zero otherwise
+# frequency_floods_intense <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(SPEI >= 1.5, 1, 0))
+# 
+# 
+# frequency_floods_intense <- frequency_floods_intense %>%
+#   group_by(state, year) %>%
+#   summarize(count = sum(count))
+# 
+# # Create a new variable 'frequency_flood' with the sum of counts for the 5 preceding years
+# #If I only want the 5 years preceding the current year, modify the 5 to 6 and subtract it by count
+# frequency_floods_intense <- frequency_floods_intense %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(frequency_floods_intense = rollsum(count, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   ungroup()
+# 
+# # Removing count
+# frequency_floods_intense <- frequency_floods_intense %>%
+#   select(-count) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(frequency_floods_intense, by = c("origin" = "state", "year"))
+# 
+# #Maximal duration --------------------------------------------------------------
+# #max duration in nb of months of a drought or flood in the 5 years preceding migration
+# duration_intense <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(abs(SPEI) >= 1.5, 1, 0))
+# 
+# #Counting the number of consecutive 1s
+# duration_intense <- duration_intense %>%
+#   group_by(state) %>%
+#   mutate(duration_intense = sequence(rle(count)$lengths) * count) %>%
+#   ungroup()
+# 
+# #Keeping the highest value per year
+# duration_intense <- duration_intense %>%
+#   group_by(state, year) %>%
+#   slice(which.max(duration_intense)) %>%
+#   select(year, state, duration_intense)
+# 
+# # Calculate the rolling maximum duration over the past 5 years
+# duration_intense <- duration_intense %>%
+#   arrange(state, year) %>%
+#   select(state, year, duration_intense) %>%
+#   group_by(state) %>%
+#   mutate(
+#     max_duration_intense = zoo::rollapply(duration_intense, width = 5, FUN = max, fill = NA, align = "right")
+#   ) %>%
+#   ungroup()
+# 
+# # Removing duration
+# duration_intense <- duration_intense %>%
+#   select(-duration_intense) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(duration_intense, by = c("origin" = "state", "year"))
+# 
+# #Max duration droughts ----
+# duration_droughts_intense <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(SPEI <= -1.5, 1, 0))
+# 
+# #Counting the number of consecutive 1s
+# duration_droughts_intense <- duration_droughts_intense %>%
+#   group_by(state) %>%
+#   mutate(duration_droughts_intense = sequence(rle(count)$lengths) * count) %>%
+#   ungroup()
+# 
+# #Keeping the highest value per year
+# duration_droughts_intense <- duration_droughts_intense %>%
+#   group_by(state, year) %>%
+#   slice(which.max(duration_droughts_intense)) %>%
+#   select(year, state, duration_droughts_intense)
+# 
+# # Calculate the rolling maximum duration_droughts_intense over the past 5 years
+# duration_droughts_intense <- duration_droughts_intense %>%
+#   arrange(state, year) %>%
+#   select(state, year, duration_droughts_intense) %>%
+#   group_by(state) %>%
+#   mutate(
+#     max_duration_droughts_intense = zoo::rollapply(duration_droughts_intense, width = 5, FUN = max, fill = NA, align = "right")
+#   ) %>%
+#   ungroup()
+# 
+# # Removing duration_droughts_intense
+# duration_droughts_intense <- duration_droughts_intense %>%
+#   select(-duration_droughts_intense) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(duration_droughts_intense, by = c("origin" = "state", "year"))
+# 
+# # Max duration floods ----
+# duration_floods_intense <- SPEI_by_state_month %>%
+#   mutate(count = ifelse(SPEI >= 1.5, 1, 0))
+# 
+# #Counting the number of consecutive 1s
+# duration_floods_intense <- duration_floods_intense %>%
+#   group_by(state) %>%
+#   mutate(duration_floods_intense = sequence(rle(count)$lengths) * count) %>%
+#   ungroup()
+# 
+# #Keeping the highest value per year
+# duration_floods_intense <- duration_floods_intense %>%
+#   group_by(state, year) %>%
+#   slice(which.max(duration_floods_intense)) %>%
+#   select(year, state, duration_floods_intense)
+# 
+# # Calculate the rolling maximum duration_floods_intense over the past 5 years
+# duration_floods_intense <- duration_floods_intense %>%
+#   arrange(state, year) %>%
+#   select(state, year, duration_floods_intense) %>%
+#   group_by(state) %>%
+#   mutate(
+#     max_duration_floods_intense = zoo::rollapply(duration_floods_intense, width = 5, FUN = max, fill = NA, align = "right")
+#   ) %>%
+#   ungroup()
+# 
+# # Removing duration_floods_intense
+# duration_floods_intense <- duration_floods_intense %>%
+#   select(-duration_floods_intense) %>%
+#   mutate(year = as.numeric(year))
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(duration_floods_intense, by = c("origin" = "state", "year"))
+# 
+# # Magnitude --------------------------------------------------------------------
+# #sum per year of SPEI
+# magnitude_intense <- SPEI_by_state_month %>%
+#   group_by(state, year) %>%
+#   summarise(sum_spei = sum(ifelse(abs(SPEI) >= 1.5, abs(SPEI), 0)))
+# 
+# #sum of the preceding 5 years
+# magnitude_intense <- magnitude_intense %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(magnitude_intense = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   select(-sum_spei) %>%
+#   ungroup()
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(magnitude_intense, by = c("origin" = "state", "year"))
+# 
+# # Magnitude droughts ----
+# magnitude_droughts_intense <- SPEI_by_state_month %>%
+#   group_by(state, year) %>%
+#   summarise(sum_spei = sum(ifelse(SPEI <= -1.5, abs(SPEI), 0)))
+# 
+# #sum of the preceding 5 years
+# magnitude_droughts_intense <- magnitude_droughts_intense %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(magnitude_droughts_intense = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   select(-sum_spei) %>%
+#   ungroup()
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(magnitude_droughts_intense, by = c("origin" = "state", "year"))
+# 
+# 
+# # Magnitude floods ----
+# magnitude_floods_intense <- SPEI_by_state_month %>%
+#   group_by(state, year) %>%
+#   summarise(sum_spei = sum(ifelse(SPEI >= 1.5, abs(SPEI), 0)))
+# 
+# #sum of the preceding 5 years
+# magnitude_floods_intense <- magnitude_floods_intense %>%
+#   arrange(state, year) %>%  # Sort the data by 'state' and 'year'
+#   group_by(state) %>%      # Group by 'state'
+#   mutate(magnitude_floods_intense = rollsum(sum_spei, 5, fill = NA, align = "right", na.rm = TRUE)) %>%
+#   select(-sum_spei) %>%
+#   ungroup()
+# 
+# #Adding it to the migration dataset
+# migration <- migration %>%
+#   left_join(magnitude_floods_intense, by = c("origin" = "state", "year"))
 
 # 3) Geographical data --------------------------------------------
 
@@ -746,6 +744,11 @@ for (i in 1:nrow(migration)) {
   }
 }
 
+#Is a federal state or not?
+wp = c("Kuala Lumpur", "Putrajaya", "Labuan")
+
+migration <- migration %>%
+  mutate(federal = ifelse(origin %in% wp, 1, 0))
 
 # 4) Sociodemographic data ----------------------------------------
 
@@ -753,7 +756,7 @@ for (i in 1:nrow(migration)) {
 # #In the dataset, Putrajaya's GDP is included in Kula Lumpur's
 # GDP <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/MY - GDPpC.xlsx")
 
-#Population
+#Population ----
 #opening excel file
 pop <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/MY - pop.xlsx")
 
@@ -761,13 +764,20 @@ pop <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/MY - pop.x
 migration <- migration %>%
   left_join(pop, by = c("origin" = "state", "year"))
 
-#Urbanisation rate
+#Urbanisation rate ----
 #opening excel file
 urban <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/Urbanisation2010.xlsx")
 
 #Merging with migration dataset
 migration <- migration %>%
   left_join(urban, by = c("origin" = "state"))
+
+#Paddy fields
+#vector of states producing rice
+paddy <- c("Kedah", "Perlis", "Perak", "Pulau Pinang", "Kelantan", "Terengganu", "Selangor")
+
+migration <- migration %>%
+  mutate(rice = as.numeric(origin %in% paddy))
 
 # 5) Alternative datasets ------------------------------------------------------
 
@@ -776,71 +786,95 @@ migration <- migration %>%
 
 # 6) Preparation for regressions -----------------------------------------------
 
-#Using inverse hyperbolic sine (IHS) to account for zeros- OLS------------------
-migration <- migration %>%
-  mutate(IHS_flow = log(flow + (flow^2 + 1)^0.5))
+# #Using inverse hyperbolic sine (IHS) to account for zeros- OLS------------------
+# migration <- migration %>%
+#   mutate(IHS_flow = log(flow + (flow^2 + 1)^0.5))
 
+#Correcting the years as character issue
+migration <- migration %>%
+  mutate(year = as.numeric(year))
+
+# 6.1) Dependent variable transformations ---------------------------------------
 # IHS with migration rates ----
 #Creation of Niit
 migration <- migration %>%
   group_by(origin, year) %>%
   mutate(Niit = pop - sum(flow, na.rm = TRUE))
 
-#Dividing flow by population
+#Dividing flow by population floe * 1'000'000 for IHS
 migration <- migration %>%
-  mutate(migrates = flow * 100000 / Niit)
+  mutate(migrates = flow * 1000000 / Niit)
 
 #IHS
 migration <- migration %>%
   mutate(IHS_flow_rates = log(migrates + (migrates^2 + 1)^0.5))
 
-#Data wrangling. Putrajaya in 2008 has no population information
-migration_rates <- migration %>%
-  filter(year != 2008)
-
-# #Fixed effects dummy creation---------------------------------------------------
-# #origin fixed effects
-# migration$origin_fe <- factor(migration$origin)
-# 
-# #destination fixed effects
-# migration$destination_fe <- factor(migration$destination)
-# 
-# #time fixed effects
-# migration$year_fe <- factor(migration$year)
-# 
-# # origin year FE
-# migration <- migration %>%
-#   unite(temp, origin, year, sep = "_") %>%
-#   mutate(origin_year_fe = factor(temp)) %>%
-#   separate(temp, into = c("origin", "year"), sep = "_")
-# 
-# # destination year FE
-# migration <- migration %>%
-#   unite(temp, destination, year, sep = "_") %>%
-#   mutate(destination_year_fe = factor(temp)) %>%
-#   separate(temp, into = c("destination", "year"), sep = "_")
-# 
-# #Country pair FE
-# migration <- migration %>%
-#   rowwise() %>%
-#   mutate(
-#     country_pair = ifelse(origin < destination, paste0(origin, "_", destination), paste0(destination, "_", origin))
-#   ) %>%
-#   ungroup()
-# 
-# migration <- migration %>%
-#   mutate(bilateral_fe = factor(country_pair))
-
-# #Spread to check dummies
-# migration <- migration %>%
-#   mutate(dummy_variable = 1) %>%
-#   spread(bilateral_fe, dummy_variable, fill = 0)
-
-
-#Correcting the years as character issue
+#Ln + 1 of dependent variable
 migration <- migration %>%
-  mutate(year = as.numeric(year))
+  mutate(LN1_flow_rates = log(migrates + 1))
 
+# 6.2) Restricted datasets -----------------------------------------------------
+#Without federal states in Selangor ----
+migration_wo_wp <- migration %>%
+  filter(!(origin == "Putrajaya" & destination == "Selangor"))
+         # !(origin == "Kuala Lumpur" & destination == "Selangor"))
+         #!(year == 2010 & origin == "Putrajaya" & destination == "Sabah"))
+
+# # < 5000 migrates
+# migration_5000 <- migration %>%
+#   filter(migrates < 5000)
+# 
+# # < 4000 migrates
+# migration_4000 <- migration %>%
+#   filter(migrates < 4000)
+# 
+# # < 3000 migrates
+# migration_3000 <- migration %>%
+#   filter(migrates < 3000)
+
+
+
+#Outliers using IQR ----
+# x <- migration %>%
+#   filter(origin == "Perlis" & destination == "Kedah")
+
+
+#By pairs 
+migration_outliers <- migration %>%
+  group_by(origin, destination) %>%
+  mutate(outliers = ifelse(length(boxplot(flow)$out) >= 0, boxplot(flow)$out, NA))
+
+# #Keeping outliers with high SPEI
+# migration_outliers_SPEI <- migration_outliers %>%
+#   filter(!(flow %in% outliers & !(abs(SPEI) >= 1)))
+
+#Not keeping them
+migration_outliers <- migration_outliers %>%
+  filter(!(flow %in% outliers))
+
+#without federal states in Selangor
+migration_outliers_wo_wp <- migration_outliers %>%
+  filter(!(origin == "Putrajaya" & destination == "Selangor"),
+         !(origin == "Kuala Lumpur" & destination == "Selangor"))
+
+# migration_outliers_SPEI_wo_wp <- migration_outliers_SPEI %>%
+#   filter(!(origin == "Putrajaya" & destination == "Selangor"),
+#          !(origin == "Kuala Lumpur" & destination == "Selangor"))
+
+# Removal of zero values ----
+migration_wo_zeros <- migration %>%
+  filter(flow != 0)
+
+migration_wo_zeros_wp <- migration %>%
+  filter(flow != 0,
+         !(origin == "Putrajaya" & destination == "Selangor"),
+         !(origin == "Kuala Lumpur" & destination == "Selangor"))
+
+migration_outliers_wo_zeros <- migration_outliers %>%
+  filter(flow != 0)
+
+migration_outliers_wo_zeros_wp <- migration_outliers_wo_wp %>%
+  filter(flow != 0)
 
 # 7) Descriptive statistics ----------------------------------------------------
 
@@ -853,6 +887,30 @@ ggplot(migration, aes(x = flow)) +
 
 #Percentage of 0s
 mean(migration$flow == 0)
+
+#SPEI vs migration
+ggplot(migration, aes(x = SPEI, y = flow)) +
+  geom_point() +
+  labs(x = "SPEI", y = "Migration") +  # Add axis labels
+  ggtitle("SPEI vs. Migration") +  # Add a title
+  theme_minimal()
+
+# Migration rates --------
+ggplot(migration, aes(x = migrates)) +
+  geom_point(binwidth = 0.5, fill = "lightblue", color = "black") +
+  labs(title = "Histogram of Migration Rates", x = "Flows", y = "Frequency") +
+  theme_minimal()
+
+#Percentage of 0s
+mean(migration$flow == 0)
+
+#SPEI vs migration rates
+ggplot(migration, aes(x = SPEI, y = migrates)) +
+  geom_point() +
+  labs(x = "SPEI", y = "Migration") +  # Add axis labels
+  ggtitle("SPEI vs. Migration Rates") +  # Add a title
+  theme_minimal()
+
 
 # #Creating an out-migration map.
 # origin_flows <- aggregate(flow ~ origin + year, data = migration[migration$origin != migration$destination, ], FUN = sum)
@@ -1038,110 +1096,98 @@ combined <- grid.arrange(plot_frequency_droughts, plot_frequency_floods,
 # 8) Regressions ---------------------------------------------------------------
 
 
-#Gradually adding fixed effects
-lm1 <- feols(IHS_flow_rates ~ SPEI | csw0(year, origin, destination, destination^year, origin^destination), migration_rates)
-etable(lm1, cluster = "origin", tex = TRUE)
+# 8.1) Gradually adding fixed effects ----
+#OLS
+lm <- feols(IHS_flow_rates ~ SPEI + log(distance) + border | mvsw(year, origin, destination, destination^year, origin^destination), migration)
+etable(lm, cluster = "origin")
 
-#Testing for bilateral FE and adding distance
-lm2 <- feols(IHS_flow_rates ~ csw0(SPEI, log(distance), border) | csw0(origin + destination^year, origin^destination), migration_rates)
-etable(lm2, cluster = "origin", tex = TRUE)
+#Poisson
+g <- fepois(migrates ~ SPEI + log(distance) + border | mvsw(year, origin, destination, destination^year, origin^destination), migration)
+etable(g, cluster = "origin")
 
-#8.1) Regressions with SPEI > +- 1
+
+# 8.2) Main specs --------------------------------------------------------------
+
 #OLS ----
-#Base specs
-lm1 <- feols(IHS_flow_rates ~ sw(SPEI, frequency, max_duration, magnitude) | origin + destination^year, migration_rates)
-etable(lm1, vcov = "hetero", tex = TRUE)
-
-#Droughts
-lm2 <- feols(IHS_flow_rates ~ sw(frequency_droughts, max_duration_droughts, magnitude_droughts) | origin + destination^year, migration_rates)
-etable(lm2, vcov = "hetero", tex = TRUE)
-
-#Floods
-lm3 <- feols(IHS_flow_rates ~ sw(frequency_floods, max_duration_floods, magnitude_floods) | origin + destination^year, migration_rates)
-etable(lm3, vcov = "hetero", tex = TRUE)
-
-#With bilateral FE ----
-
-#Base specs
-lm1 <- feols(IHS_flow_rates ~ sw(SPEI, frequency, max_duration, magnitude) | origin + destination^year + origin^destination, migration_rates)
-etable(lm1, cluster = "origin", tex = TRUE)
-
-#Droughts
-lm2 <- feols(IHS_flow_rates ~ sw(frequency_droughts, max_duration_droughts, magnitude_droughts) | origin + destination^year + origin^destination, migration_rates)
-etable(lm2, cluster = "origin", tex = TRUE)
-
-#Floods
-lm3 <- feols(IHS_flow_rates ~ sw(frequency_floods, max_duration_floods, magnitude_floods) | origin + destination^year + origin^destination, migration_rates)
-etable(lm3, cluster = "origin", tex = TRUE)
+#Beta is positive unless you include destination year fixed effects
+#It is positive with levels and negative with IHS when there are only
+#destination-year fixed effects. Both are negative when either
+#origin or bilateral FE are added -> why?
+lm <- feols(c(IHS_flow_rates, migrates) ~ SPEI + log(distance) + border | mvsw(origin, destination^year, origin^destination), migration)
+etable(lm, cluster = "origin")
 
 #PPML ----
-#Gradually adding fixed effects
-g1 <- fepois(migrates ~ SPEI | csw0(year, origin, destination, destination^year, origin^destination), migration_rates)
-etable(g1, vcov = "hetero")
+#Very similar with poisson. Inclusion of destination-year fixed effects make
+#the coefficient negative.
+g <- fepois(c(IHS_flow_rates, migrates) ~ SPEI + border + log(distance)| mvsw(origin, destination^year, origin^destination), migration)
+etable(g, vcluster = "origin")
 
-#Base specs
-g2 <- fepois(migrates ~ sw(SPEI, frequency, max_duration, magnitude) | origin + destination^year, migration_rates)
-etable(g2, vcov = "hetero", tex = TRUE)
 
-#Droughts
-g3 <- fepois(migrates ~ sw(frequency_droughts, max_duration_droughts, magnitude_droughts) | origin + destination^year, migration_rates)
-etable(g3, vcov = "hetero", tex = TRUE)
+#Checking for best estimation method. Sensitivity analysis. PPML vs OLS.
+lm <- feols(c(IHS_flow_rates, LN1_flow_rates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration)
+g <- fepois(migrates ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration)
 
-#Floods
-g4 <- fepois(migrates ~ sw(frequency_floods, max_duration_floods, magnitude_floods) | origin + destination^year, migration_rates)
-etable(g4, vcov = "hetero", tex = TRUE)
+lm2 <- feols(c(IHS_flow_rates, LN1_flow_rates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_wo_zeros)
+g2 <- fepois(migrates ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_wo_zeros)
 
-# 8.2) "Intense variations"
+lm3 <- feols(c(IHS_flow_rates, LN1_flow_rates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_wo_wp)
+g3 <- fepois(migrates ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_wo_wp)
 
-#OLS----
-#Base specs
-lm1 <- feols(IHS_flow_rates ~ sw(SPEI, frequency_intense, max_duration_intense, magnitude_intense) | origin + destination^year, migration_rates)
-etable(lm1, vcov = "hetero", tex = TRUE)
+lm4 <- feols(c(IHS_flow_rates, LN1_flow_rates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_outliers)
+g4 <- fepois(migrates ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_outliers)
 
-#Droughts
-lm2 <- feols(IHS_flow_rates ~ sw(frequency_droughts_intense, max_duration_droughts_intense, magnitude_droughts_intense) | origin + destination^year, migration_rates)
-etable(lm2, vcov = "hetero", tex = TRUE)
 
-#Floods
-lm3 <- feols(IHS_flow_rates ~ sw(frequency_floods_intense, max_duration_floods_intense, magnitude_floods_intense) | origin + destination^year, migration_rates)
-etable(lm3, vcov = "hetero", tex = TRUE)
+etable(lm, lm2, lm3, lm4, cluster = "origin")
+etable(g, g2, g3, g4, cluster = "origin")
 
-#PPML ----
-#Base specs
-g1 <- fepois(migrates ~ sw(SPEI, frequency_intense, max_duration_intense, magnitude_intense) | origin + destination^year, migration_rates)
-etable(g1, vcov = "hetero", tex = TRUE)
 
-#Droughts
-g2 <- fepois(migrates ~ sw(frequency_droughts_intense, max_duration_droughts_intense, magnitude_droughts_intense) | origin + destination^year, migration_rates)
-etable(g2, vcov = "hetero", tex = TRUE)
+# 8.3) Heterogeneous effects ---------------------------------------------------
+# #Levels
+# g1 <- fepois(migrates ~ SPEI + sw(SPEI:rice,
+#                                  SPEI:urban,
+#                                  SPEI:border)| origin + destination^year, migration)
+# etable(g1, vcov = "hetero", tex = TRUE)
+# 
+# #FLoods
+# g1 <- fepois(migrates ~ magnitude_floods_intense + sw(magnitude_floods_intense:rice, 
+#                                                       magnitude_floods_intense:urban,
+#                                                       magnitude_floods_intense:border)| origin + destination^year, migration)
+# etable(g1, vcov = "hetero", tex = TRUE)
+# 
+# g2 <- fepois(migrates ~ frequency_floods_intense + sw(frequency_floods_intense:rice, 
+#                                                       frequency_floods_intense:urban,
+#                                                       frequency_floods_intense:border)| origin + destination^year, migration)
+# etable(g2, vcov = "hetero", tex = TRUE)
+# 
+# g3 <- fepois(migrates ~ max_duration_floods_intense + sw(max_duration_floods_intense:rice, 
+#                                                   max_duration_floods_intense:urban,
+#                                                   max_duration_floods_intense:border)| origin + destination^year, migration)
+# etable(g3, vcov = "hetero", tex = TRUE)
+# 
+# #Floods
+# g1 <- fepois(migrates ~ magnitude_droughts_intense + sw(magnitude_droughts_intense:rice, 
+#                                                       magnitude_droughts_intense:urban,
+#                                                       magnitude_droughts_intense:border)| origin + destination^year, migration)
+# etable(g1, vcov = "hetero", tex = TRUE)
+# 
+# g2 <- fepois(migrates ~ frequency_droughts_intense + sw(frequency_droughts_intense:rice, 
+#                                                       frequency_droughts_intense:urban,
+#                                                       frequency_droughts_intense:border)| origin + destination^year, migration)
+# etable(g2, vcov = "hetero", tex = TRUE)
+# 
+# g3 <- fepois(migrates ~ max_duration_droughts_intense + sw(max_duration_droughts_intense:rice, 
+#                                                          max_duration_droughts_intense:urban,
+#                                                          max_duration_droughts_intense:border)| origin + destination^year, migration)
+# etable(g3, vcov = "hetero", tex = TRUE)
 
-#Floods
-g3 <- fepois(migrates ~ sw(frequency_floods_intense, max_duration_floods_intense, magnitude_floods_intense) | origin + destination^year, migration_rates)
-etable(g3, vcov = "hetero", tex = TRUE)
 
-#Controlling for costs
-g1 <- fepois(migrates ~ sw(SPEI, frequency_intense, max_duration_intense, magnitude_intense) 
-             + log(distance) + border| origin + destination^year, migration_rates)
-etable(g1, vcov = "hetero", tex = TRUE)
-
-#Droughts
-g2 <- fepois(migrates ~ sw(frequency_droughts_intense, max_duration_droughts_intense, magnitude_droughts_intense)
-             + log(distance) + border| origin + destination^year, migration_rates)
-etable(g2, vcov = "hetero", tex = TRUE)
-
-#Floods
-g3 <- fepois(migrates ~ sw(frequency_floods_intense, max_duration_floods_intense, magnitude_floods_intense) 
-             + log(distance) + border| origin + destination^year, migration_rates)
-etable(g3, vcov = "hetero", tex = TRUE)
-
-# 9) Tests -------------------------------------------------------------------------
+# 9) Tests ---------------------------------------------------------------------
 
 #fixest test ----
-lm <- feols(IHS_flow ~ SPEI + log(distance) | origin^year + destination, migration)
-summary(lm, cluster = "destination")
+lm <- feols(c(IHS_flow_rates, migrates) ~ SPEI + federal | origin + destination^year + origin^destination, migration)
+etable(lm, vcov = "hetero")
 
-g <- fepois(migrates ~ frequency_floods_intense + frequency_floods_intense:urban| origin + destination^year, migration_rates)
+g <- fepois(migrates ~ SPEI | origin + destination^year + origin^destination, migration)
 etable(g, vcov = "hetero")
-
 
 
