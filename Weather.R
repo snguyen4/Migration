@@ -233,7 +233,11 @@ migration <- migration %>%
          droughts = ifelse(SPEI <= -1, 1, 0),
          floods = ifelse(SPEI >= 1, 1, 0),
          normal = ifelse(SPEI < 1 & SPEI > -1, 1, 0),
-         normal_intense = ifelse(SPEI < 1.5 & SPEI > -1.5, 1, 0))
+         normal_intense = ifelse(SPEI < 1.5 & SPEI > -1.5, 1, 0),
+         floods_extreme = ifelse(SPEI >= 2, 1, 0),
+         floods_between_extreme = ifelse(SPEI >= 1.5 & SPEI < 2, 1, 0),
+         droughts_extreme = ifelse(SPEI <= -2, 1, 0),
+         droughts_between_extreme = ifelse(SPEI <= -1.5 & SPEI > -2, 1, 0))
 
 
 #Piecewise linear regression ----
@@ -242,6 +246,15 @@ migration <- migration %>%
          SPEI_floods_intense = ifelse(SPEI >= 1.5, SPEI - 1.5, 0),
          SPEI_droughts = ifelse(SPEI <= - 1, SPEI + 1, 0),
          SPEI_floods = ifelse(SPEI >= 1, SPEI - 1, 0))
+
+
+#level coded dummies ----
+migration <- migration %>%
+  mutate(normal_lvlc = normal * SPEI,
+         droughts_between_lvlc = droughts_between * SPEI,
+         floods_between_lvlc = floods_between * SPEI,
+         droughts_intense_lvlc = droughts_intense * SPEI,
+         floods_intense_lvlc = floods_intense * SPEI)
 
 
 # # Disasters ------------------------------------------------------------------
@@ -412,66 +425,42 @@ migration <- migration %>%
 
 # 6.2) Restricted datasets -----------------------------------------------------
 #Without federal states in Selangor ----
-migration_wo_wp <- migration %>%
-  filter(!(origin == "Putrajaya" & destination == "Selangor"))
-         # !(origin == "Kuala Lumpur" & destination == "Selangor"))
-         #!(year == 2010 & origin == "Putrajaya" & destination == "Sabah"))
-
-# # < 5000 migrates
-# migration_5000 <- migration %>%
-#   filter(migrates < 5000)
-# 
-# # < 4000 migrates
-# migration_4000 <- migration %>%
-#   filter(migrates < 4000)
-# 
-# # < 3000 migrates
-# migration_3000 <- migration %>%
-#   filter(migrates < 3000)
-
+migration_wo_high <- migration %>%
+  filter(!(origin == "Putrajaya" & destination == "Selangor"),
+         !(origin == "Kuala Lumpur" & destination == "Selangor"))
 
 
 #Outliers using IQR ----
 
-# x <- migration %>%
-#   filter(origin == "Perlis" & destination == "Kedah")
-
 #By pairs 
 migration_outliers <- migration %>%
   group_by(origin, destination) %>%
-  mutate(outliers = ifelse(length(boxplot(migrates)$out) >= 0, boxplot(migrates)$out, NA))
+  mutate(outliers = ifelse(length(boxplot(migrates)$out) >= 0, boxplot(migrates)$out, NA)) %>%
+  filter(is.na(outliers))
 
-# #Keeping outliers with high SPEI
-# migration_outliers_SPEI <- migration_outliers %>%
-#   filter(!(flow %in% outliers & !(abs(SPEI) >= 1)))
-
-#Not keeping them
-migration_outliers <- migration_outliers %>%
-  filter(!(migrates %in% outliers))
-
-#without federal states in Selangor
-migration_outliers_wo_wp <- migration_outliers %>%
-  filter(!(origin == "Putrajaya" & destination == "Selangor"),
-         !(origin == "Kuala Lumpur" & destination == "Selangor"))
-
-# migration_outliers_SPEI_wo_wp <- migration_outliers_SPEI %>%
-#   filter(!(origin == "Putrajaya" & destination == "Selangor"),
-#          !(origin == "Kuala Lumpur" & destination == "Selangor"))
 
 # Removal of zero values ----
+
+#Removing pairs with only zero values
+
+#Strictly zero flow pairs
 migration_wo_zeros <- migration %>%
-  filter(flow != 0)
+  group_by(origin, destination) %>%
+  mutate(total_flow = sum(flow)) %>%
+  arrange(origin, destination) %>%
+  filter(total_flow != 0)
 
-migration_wo_zeros_wp <- migration %>%
-  filter(flow != 0,
-         !(origin == "Putrajaya" & destination == "Selangor"),
-         !(origin == "Kuala Lumpur" & destination == "Selangor"))
+#Mostly zeros >= 6/8 zeros -> 75%
+migration_wo_zeros_75 <- migration %>%
+  group_by(origin, destination) %>%
+  mutate(zeros = ifelse(flow == 0, 1, 0),
+         total_zeros = sum(zeros)) %>%
+  filter(total_zeros < 6) %>%
+  arrange(origin, destination) 
 
-migration_outliers_wo_zeros <- migration_outliers %>%
-  filter(flow != 0)
-
-migration_outliers_wo_zeros_wp <- migration_outliers_wo_wp %>%
-  filter(flow != 0)
+# Create bins for SPEI values ----
+migration <- migration %>%
+  mutate(SPEI_category = cut(SPEI, breaks = seq(-2.5, 3, by = 0.5)))
 
 # 6.3) Lags --------------------------------------------------------------------
 
@@ -520,7 +509,6 @@ ggplot(migration, aes(x = IHS_flow_rates)) +
   labs(title = "Histogram of Migration Rates", x = "Flows", y = "Frequency") +
   theme_minimal()
 
-
 #SPEI vs migration rates
 ggplot(migration, aes(x = SPEI, y = migrates)) +
   geom_point() +
@@ -528,11 +516,47 @@ ggplot(migration, aes(x = SPEI, y = migrates)) +
   ggtitle("SPEI vs. Migration Rates") +  # Add a title
   theme_minimal()
 
-ggplot(migration, aes(x = SPEI, y = IHS_flow_rates)) +
+#Without zeros ----
+#logs
+ggplot(migration_wo_zeros, aes(x = IHS_flow_rates)) +
+  geom_histogram(binwidth = 0.5, fill = "lightblue", color = "black") +
+  labs(title = "Histogram of Migration Rates", x = "Flows", y = "Frequency") +
+  theme_minimal()
+
+#levels
+ggplot(migration_wo_zeros, aes(x = migrates)) +
+  geom_histogram(binwidth = 0.5, fill = "lightblue", color = "black") +
+  labs(title = "Histogram of Migration Rates", x = "Flows", y = "Frequency") +
+  theme_minimal()
+
+#SPEI vs migration rates
+ggplot(migration_wo_zeros, aes(x = SPEI, y = migrates)) +
+  geom_point() +
+  labs(x = "SPEI", y = "Migration") +  # Add axis labels
+  ggtitle("SPEI vs. Migration Rates") +  # Add a title
+  theme_minimal()
+
+ggplot(migration_wo_zeros, aes(x = SPEI, y = IHS_flow_rates)) +
   geom_point() +
   labs(x = "SPEI", y = "Migration") +  # Add axis labels
   ggtitle("SPEI vs. Migration") +  # Add a title
   theme_minimal()
+
+
+#Zeros only ----
+#bar plot of zero values
+
+migration %>%
+  filter(flow == 0) %>%
+  group_by(SPEI_category) %>%
+  summarize(Count = n()) %>%
+  ggplot(aes(x = SPEI_category, y = Count)) +
+  geom_bar(stat = "identity", fill = "blue", color = "black") +
+  labs(
+    title = "Number of Zero Flow Observations by SPEI Category",
+    x = "SPEI Category",
+    y = "Number of Observations"
+  )
 
 
 # 7.2) Maps --------------------------------------------------------------------
@@ -626,87 +650,172 @@ etable(lm, cluster = "origin")
 g <- fepois(c(IHS_flow_rates, migrates) ~ SPEI + border + log(distance)| mvsw(origin, destination^year, origin^destination), fixef.rm = "none" ,migration)
 etable(g, cluster = "origin")
 
+# 8.3) Tests with restricted datasets ------------------------------------------
 
 #Checking for best estimation method. Sensitivity analysis. PPML vs OLS ----
-lm <- feols(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration)
-g <- fepois(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none" ,migration)
-n <- fenegbin(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | origin + destination^year, migration)
+lm <- feols(c(IHS_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration)
+g <- fepois(c(IHS_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none" ,migration)
 
-lm2 <- feols(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_wo_zeros)
-g2 <- fepois(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none" ,migration_wo_zeros)
-n2 <- fenegbin(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | origin + destination^year ,migration_wo_zeros)
+lm2 <- feols(c(IHS_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_wo_zeros)
+g2 <- fepois(c(IHS_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none" ,migration_wo_zeros)
 
-lm3 <- feols(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_wo_wp)
-g3 <- fepois(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none" ,migration_wo_wp)
-n3 <- fenegbin(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | origin + destination^year, migration_wo_wp)
+lm3 <- feols(c(IHS_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_wo_zeros_75)
+g3 <- fepois(c(IHS_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none" ,migration_wo_zeros_75)
 
-lm4 <- feols(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_outliers)
-g4 <- fepois(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none" ,migration_outliers)
-n4 <- fenegbin(c(IHS_flow_rates, LN1_flow_rates, migrates) ~ SPEI + log(distance) + border | origin + destination^year ,migration_outliers)
+lm4 <- feols(c(IHS_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_wo_high)
+g4 <- fepois(c(IHS_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none" ,migration_wo_high)
 
-# lm5 <- feols(IHS_flow_rates ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_outliers_wo_zeros)
-# g5 <- fepois(migrates ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none" ,migration_outliers_wo_zeros)
-# n5 <- fenegbin(migrates ~ SPEI + log(distance) + border | origin + destination^year ,migration_outliers_wo_zeros)
+lm5 <- feols(c(IHS_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), migration_outliers)
+g5 <- fepois(c(IHS_flow_rates, migrates) ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none" ,migration_outliers)
+
+#It is consistent unless you remove the pairs with over 75% zero flows
+#which leads to a sign change in the SPEI variable -> It becomes positive. 
+#Overall the SPEI coefficient stays the same even with bilateral fixed effects
+etable(lm, lm2, lm3, lm4, lm5, cluster = "origin")
+
+#SPEI coefficient in this case seems to be negative even with the removal of the
+#zeros. Overall the coefficients are stable and the signs don't change.
+etable(g, g2, g3, g4, g5, cluster = "origin")
+
+#Overall the poisson with distance and border as controls has a slight advantage
+#as the signs don't change even with the removal of zeros.
 
 
-etable(lm, lm2, lm3, lm4, cluster = "origin")
-etable(g, g2, g3, g4, cluster = "origin")
-etable(n, n2, n3, n4, cluster = "origin")
+#Piecewise tests ----
+lm <- feols(IHS_flow_rates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration)
+g <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration)
 
-#Piecewise tests
-lm <- feols(IHS_flow_rates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year, migration)
-g <- fepois(migrates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration)
-n <- fenegbin(migrates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year ,migration)
+lm2 <- feols(IHS_flow_rates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration_wo_zeros)
+g2 <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_wo_zeros)
 
-lm2 <- feols(IHS_flow_rates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year, migration_wo_zeros)
-g2 <- fepois(migrates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_wo_zeros)
-n2 <- fenegbin(migrates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year ,migration_wo_zeros)
+lm3 <- feols(IHS_flow_rates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration_wo_zeros_75)
+g3 <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_wo_zeros_75)
 
-lm3 <- feols(IHS_flow_rates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year, migration_wo_wp)
-g3 <- fepois(migrates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_wo_wp)
-n3 <- fenegbin(migrates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year ,migration_wo_wp)
+lm4 <- feols(IHS_flow_rates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration_wo_high)
+g4 <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_wo_high)
 
-lm4 <- feols(IHS_flow_rates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year, migration_outliers)
-g4 <- fepois(migrates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_outliers)
-n4 <- fenegbin(migrates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year ,migration_outliers)
+lm5 <- feols(IHS_flow_rates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration_outliers)
+g5 <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none", migration_outliers)
 
-# lm5 <- feols(IHS_flow_rates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration_outliers_wo_zeros)
-# g5 <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none", migration_outliers_wo_zeros)
-# n5 <- fenegbin(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration_outliers_wo_zeros)
+#Regular droughts and floods are never significant.
 
-etable(lm, lm2, lm3, lm4, cluster = "origin")
-etable(g, g2, g3, g4, cluster = "origin")
-etable(n, n2, n3, n4, cluster = "origin")
+# The coefficients change signs when zeros are removed.
+# Coefficients change a lot depending on the restriction
+etable(lm, lm2, lm3, lm4, lm5, cluster = "origin")
 
-#Dummies test
+#Overall the coefficients have the same sign. Significance changes a bit.
+#Overall more stable
+etable(g, g2, g3, g4, g5, cluster = "origin")
+
+#negative binomial test. Overdispersion all smaller than 1 -> PPML is better
+n <- fenegbin(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration)
+n2 <- fenegbin(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration_wo_zeros)
+n3 <- fenegbin(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration_wo_zeros_75)
+n4 <- fenegbin(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration_wo_high)
+n5 <- fenegbin(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration)
+etable(n, n2, n3, n4, n5, cluster = "origin")
+
+#Dummies test ----
 lm <- feols(IHS_flow_rates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, migration)
 g <- fepois(migrates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration)
-n <- fenegbin(migrates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year ,migration)
 
 lm2 <- feols(IHS_flow_rates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, migration_wo_zeros)
 g2 <- fepois(migrates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_wo_zeros)
-n2 <- fenegbin(migrates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year ,migration_wo_zeros)
 
-lm3 <- feols(IHS_flow_rates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, migration_wo_wp)
-g3 <- fepois(migrates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_wo_wp)
-n3 <- fenegbin(migrates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year ,migration_wo_wp)
+lm3 <- feols(IHS_flow_rates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, migration_wo_zeros_75)
+g3 <- fepois(migrates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_wo_zeros_75)
 
-lm4 <- feols(IHS_flow_rates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, migration_outliers)
-g4 <- fepois(migrates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_outliers)
-n4 <- fenegbin(migrates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year ,migration_outliers)
+lm4 <- feols(IHS_flow_rates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, migration_wo_high)
+g4 <- fepois(migrates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_wo_high)
 
-# lm5 <- feols(IHS_flow_rates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration_outliers_wo_zeros)
-# g5 <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none", migration_outliers_wo_zeros)
-# n5 <- fenegbin(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, migration_outliers_wo_zeros)
-
-etable(lm, lm2, lm3, lm4, cluster = "origin")
-etable(g, g2, g3, g4, cluster = "origin")
-etable(n, n2, n3, n4, cluster = "origin")
-
-# 8.3 Lags ---------------------------------------------------------------------
+lm5 <- feols(IHS_flow_rates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, migration_outliers)
+g5 <- fepois(migrates ~ mvsw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration_outliers)
 
 
-# 8.4) Heterogeneous effects ---------------------------------------------------
+#Overall sign stays the same. Significance changes sometimes when its at 10%
+etable(lm, lm2, lm3, lm4, lm5, cluster = "origin")
+
+#It is less consitent than OLS. There are signs and significance changes sometimes.
+etable(g, g2, g3, g4, g5, cluster = "origin")
+
+# 8.3.1) Zero testing ----------------------------------------------------------
+
+x <- migration %>%
+  mutate(zero_high = ifelse((SPEI > -2 & SPEI <= 1.5 & flow == 0) | (SPEI > 2 & SPEI <= 3 & flow == 0), 1, 0)) %>%
+  filter(zero_high != 1)
+
+x <- migration %>%
+  mutate(zero_high = ifelse(SPEI > -0.7 & SPEI <= 3 & flow == 0, 1, 0)) %>%
+  filter(zero_high != 1)
+
+migration_wo_zeros_test <- migration %>%
+  filter(flow != 0)
+
+
+#normal
+g <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none", migration)
+
+#without zeros
+g2 <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none", migration_wo_zeros_test)
+
+#without zeros in some SPEI bins
+g3 <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none", x)
+
+
+#Removing zeros between -1.5 to -0.5 decreases significance of all variables.
+#Removing zeros between 0 and 0.5 decreases the significance somewhat.
+#Removing those two in combination changes the significance + changes sign of floods_intense.
+#All 3 have similar signs
+
+#1333, 1301 observations lefts SPEI still negative
+#1287 from -1.5 to 2 -> SPEI positive
+#1285 everything but 1.5 to 2 SPEI still negative
+
+#Removing positive SPEI zeros makes SPEI more positive.
+#1425 observations left. from >-1 to 3 SPEI makes the coefficient positive
+#1499 obs from 0.7 to 3 SPEI
+etable(g, g2, g3, cluster = "origin")
+
+# 8.4) Significant specs -------------------------------------------------------
+
+# 8.4.1) Piecewise regressions -------------------------------------------------
+#Cutoffs at 1.5 for intense and 1 for normal: SPEI is always significant.
+#Droughts and floods not significant. Intense version significant.
+g <- fepois(migrates ~ SPEI + sw(SPEI_droughts_intense + SPEI_floods_intense, SPEI_droughts + SPEI_floods) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration)
+etable(g, cluster = "origin")
+
+# 8.4.2) Dummies regressions ---------------------------------------------------
+
+#Regular dummies ----
+#Droughts between dummy: It is the only one significant at the 10% level
+g <- fepois(migrates ~ csw(droughts_between, floods_between, droughts_intense, floods_intense) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration)
+etable(g, cluster = "origin")
+
+#Normal dummy: The normal dummy is significant at the 5% level, but not the intense one.
+g <- fepois(migrates ~ sw(normal, normal_intense) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration)
+etable(g, cluster = "origin")
+
+#SPEI + dummies ----
+#Significant at the 5%:
+#Adding flood intense: #Droughts_intense + floods_intense
+                       #Floods_between + floods_intense
+                       #droughts_intense + floods_between + floods_intense
+#Adding droughts_between makes the SPEI not significant even with floods_intense.
+#Significant on its own at 10% level? Maybe that's why.
+g <- fepois(migrates ~ SPEI + mvsw(droughts_intense, droughts_between, floods_between, floods_intense) + log(distance) + border | origin + destination^year, fixef.rm = "none" ,migration)
+etable(g, cluster = "origin")
+
+#Level-coded ----
+#Droughts_between_lvlc significant at 10%
+g = fepois(migrates ~ normal_lvlc + droughts_between_lvlc + floods_between_lvlc + droughts_intense_lvlc + floods_intense_lvlc + log(distance) + border | origin + destination^year, fixef.rm = "none", migration)
+etable(g, cluster = "origin")
+
+
+
+# 8.5) Lags --------------------------------------------------------------------
+
+
+# 8.6) Heterogeneous effects ---------------------------------------------------
 # #Levels
 # g1 <- fepois(migrates ~ SPEI + sw(SPEI:rice,
 #                                  SPEI:urban,
@@ -748,23 +857,22 @@ etable(n, n2, n3, n4, cluster = "origin")
 
 # 9) Tests ---------------------------------------------------------------------
 
-# x <- migration %>%
-#   mutate(test = ifelse(SPEI >= 0.5 & SPEI < 1, 1, 0),
-#          test2 = ifelse(SPEI <= -0.5 & SPEI > -1, 1, 0),
-#          test3 = ifelse(SPEI >= 1 & SPEI < 1.5, 1, 0),
-#          test4 = ifelse(SPEI <= -1 & SPEI > -1.5, 1, 0))
+g_lag = fepois(migrates ~ SPEI + log(distance) + border | origin + destination^year, fixef.rm = "none", migration)
+etable(g_lag, cluster = "origin")
 
-lm <- feols(IHS_flow_rates ~ SPEI + SPEI_droughts + SPEI_floods + log(distance) + border | origin + destination^year, migration)
+lm <- feols(IHS_flow_rates ~ SPEI + SPEI_droughts + SPEI_floods | origin + destination^year + origin^destination, migration)
 etable(lm, cluster = "origin")
 
-g <- fepois(migrates ~ droughts_between + droughts_intense + floods_between + floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none", migration)
-etable(g, cluster = "origin")
 
-g <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + log(distance) + border | origin + destination^year, fixef.rm = "none", migration)
-etable(g, cluster = "origin")
 
-g_lag = fepois(migrates ~ SPEI + SPEI_lag1 + SPEI_lag2 + log(distance) + border | origin + destination^year, fixef.rm = "none", migration)
-etable(g_lag, cluster = "origin")
+
+lm <- feols(IHS_flow_rates ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none", migration)
+lm2 <- feols(IHS_flow_rates ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none", x)
+g <- fepois(migrates ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEI + log(distance) + border | csw(origin + destination^year, origin^destination), fixef.rm = "none", x)
+
+etable(lm,lm2, g, g2, cluster = "origin")
+
 
 
 
