@@ -2137,3 +2137,190 @@ urban <- urban %>%
 #Merging with migration dataset
 migration <- migration %>%
   left_join(urban, by = c("origin" = "state"))
+
+
+#SPEI - 36 ---------------------------------------------------------------------
+
+r <- rast("c:/Users/samue/Desktop/Dissertation/Migration/Data/spei36.nc")
+
+#Caclulating State averages
+#Cropping raster layers
+MY_r <- terra::crop(r, MY_sf)
+
+#Converting to Spatvector
+MY_sv <- vect(MY_sf)
+
+#Extracting values from the raster for each state
+SPEI_by_state <- terra::extract(MY_r, MY_sv, fun = "mean", na.rm = TRUE) 
+
+# SPEI_by_state2 <- terra::extract(MY_r, MY_sv, fun = "mean", weights = TRUE, na.rm = TRUE)
+# rownames(SPEI_by_state2) <- MY_sf$NAME_1
+
+
+#Deleting ID column
+SPEI_by_state <- select(SPEI_by_state, -ID)
+
+#Changing row names to states.
+rownames(SPEI_by_state) <- MY_sf$NAME_1
+
+#Inverting columns and rows
+SPEI_by_state <- SPEI_by_state %>%
+  t() %>%
+  as.data.frame() 
+
+#Adding date column
+start_date <- as.Date("1901-1-1")
+end_date <- as.Date("2022-12-1")
+dates <- seq(start_date, end_date, by = "month")
+dates <- format(dates, "%Y/%m")
+
+SPEI_by_state <- SPEI_by_state %>%
+  mutate(date = dates) %>%
+  relocate(date, .before = 1) 
+
+row.names(SPEI_by_state) <- NULL # resetting row names to initial values.
+
+#Splitting years and months
+SPEI_by_state <- SPEI_by_state %>%
+  separate(date, into = c("year", "month"), sep = "/")
+
+#Lagging the years by 6 months. In the migration survey, migration flows are from
+#July to June next year.
+SPEI_by_state <- SPEI_by_state %>%
+  mutate(year = as.integer(year), month = as.integer(month)) %>%
+  mutate(year = ifelse(month <= 6, year - 1, year))
+
+#Yearly SPEI calculation ---- Keeping the 12 month June SPEI
+SPEI_by_state <- SPEI_by_state %>%
+  filter(month == 6,
+         year >= 2000 & year < 2020) %>%
+  select(- month)
+
+#Adding SPEI at origin state to migration dataset 
+#Transformation to long format
+SPEI_by_state <- SPEI_by_state %>%
+  gather(key = "state", value = "SPEI36", -year)
+
+
+# Convert 'year' in spi_long to numeric
+SPEI_by_state <- SPEI_by_state %>%
+  mutate(year = as.numeric(year))
+
+#Merge datasets
+migration <- migration %>%
+  left_join(SPEI_by_state, by = c("origin" = "state", "year"))
+
+
+#Robustness tests --------------------------------------------------------------
+
+#SPEI-12 choice ---- 
+g <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEI24 + SPEI24_droughts_intense + SPEI24_floods_intense |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEI36 + SPEI36_droughts_intense + SPEI36_floods_intense |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g4 <- fepois(migrates ~ SPEI04 + SPEI04_droughts_intense + SPEI04_floods_intense |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g5 <- fepois(migrates ~ SPEI04v2 + SPEI04v2_droughts_intense + SPEI04v2_floods_intense |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g6 <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense + SPEI_lag1 + SPEI_droughts_intense_lag1 + SPEI_floods_intense_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, g2, g3, g4, g5, g6, cluster = "origin")
+etable(g, g2, g3, g4, g5, g6, cluster = "origin", digits = "r3", tex = TRUE)
+
+
+#Choice of droughts and floods values ----
+g <- fepois(migrates ~ SPEI + SPEI_droughts_intense_1 + SPEI_floods_intense_1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEI + SPEI_droughts_intense_1.25 + SPEI_floods_intense_1.25 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEI + SPEI_droughts_intense + SPEI_floods_intense |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g4 <- fepois(migrates ~ SPEI + SPEI_droughts_intense_1.75 + SPEI_floods_intense_1.75 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g5 <- fepois(migrates ~ SPEI + SPEI_droughts_intense_2 + SPEI_floods_intense_2 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, g2, g3, g4, g5, cluster = "origin")
+etable(g, g2, g3, g4, g5, cluster = "origin", digits = "r3", tex = TRUE)
+
+
+#Urban and rural choice
+g <- fepois(migrates ~ SPEI:urban_state_60 + SPEI_droughts_intense:urban_state_60 + SPEI_floods_intense:urban_state_60 +
+              SPEI:rural_state_60 + SPEI_droughts_intense:rural_state_60 + SPEI_floods_intense:rural_state_60 |  
+              origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+g2 <- fepois(migrates ~ SPEI:urban_state + SPEI_droughts_intense:urban_state + SPEI_floods_intense:urban_state +
+               SPEI:rural_state + SPEI_droughts_intense:rural_state + SPEI_floods_intense:rural_state |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+g3 <- fepois(migrates ~ SPEI:urban_state_70 + SPEI_droughts_intense:urban_state_70 + SPEI_floods_intense:urban_state_70 +
+               SPEI:rural_state_70 + SPEI_droughts_intense:rural_state_70 + SPEI_floods_intense:rural_state_70 |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+g4 <- fepois(migrates ~ SPEI:non_agri_4 + SPEI_droughts_intense:non_agri_4 + SPEI_floods_intense:non_agri_4 +
+               SPEI:agri_4 + SPEI_droughts_intense:agri_4 + SPEI_floods_intense:agri_4 |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+g5 <- fepois(migrates ~ SPEI:non_agri_5 + SPEI_droughts_intense:non_agri_5 + SPEI_floods_intense:non_agri_5 +
+               SPEI:agri_5 + SPEI_droughts_intense:agri_5 + SPEI_floods_intense:agri_5 |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, g2, g3, g4, g5, cluster = "origin")
+etable(g, g2, g3, g4, g5, cluster = "origin", digits = "r3", tex = TRUE)
+
+
+
+#Malaria and poor choice
+
+g <- fepois(migrates ~ SPEI:urban_state + SPEI_droughts_intense:urban_state + SPEI_floods_intense:urban_state +
+              SPEI:rural_state + SPEI_droughts_intense:rural_state + SPEI_floods_intense:rural_state +
+              SPEI:urban_state:malaria_high_5 + SPEI_droughts_intense:urban_state:malaria_high_5 + SPEI_floods_intense:urban_state:malaria_high_5 +
+              SPEI:rural_state:malaria_high_5 + SPEI_droughts_intense:rural_state:malaria_high_5 + SPEI_floods_intense:rural_state:malaria_high_5 |  
+              origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+g2 <- fepois(migrates ~ SPEI:urban_state + SPEI_droughts_intense:urban_state + SPEI_floods_intense:urban_state +
+               SPEI:rural_state + SPEI_droughts_intense:rural_state + SPEI_floods_intense:rural_state +
+               SPEI:urban_state:malaria_high_4 + SPEI_droughts_intense:urban_state:malaria_high_4 + SPEI_floods_intense:urban_state:malaria_high_4 +
+               SPEI:rural_state:malaria_high_4 + SPEI_droughts_intense:rural_state:malaria_high_4 + SPEI_floods_intense:rural_state:malaria_high_4 |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+
+g3 <- fepois(migrates ~ SPEI:urban_state + SPEI_droughts_intense:urban_state + SPEI_floods_intense:urban_state +
+               SPEI:rural_state + SPEI_droughts_intense:rural_state + SPEI_floods_intense:rural_state +
+               SPEI:urban_state:malaria_high_3 + SPEI_droughts_intense:urban_state:malaria_high_3 + SPEI_floods_intense:urban_state:malaria_high_3 +
+               SPEI:rural_state:malaria_high_3 + SPEI_droughts_intense:rural_state:malaria_high_3 + SPEI_floods_intense:rural_state:malaria_high_3 |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+g4 <- fepois(migrates ~ SPEI:urban_state + SPEI_droughts_intense:urban_state + SPEI_floods_intense:urban_state +
+               SPEI:rural_state + SPEI_droughts_intense:rural_state + SPEI_floods_intense:rural_state +
+               SPEI:urban_state:poor_5 + SPEI_droughts_intense:urban_state:poor_5 + SPEI_floods_intense:urban_state:poor_5 +
+               SPEI:rural_state:poor_5 + SPEI_droughts_intense:rural_state:poor_5 + SPEI_floods_intense:rural_state:poor_5 |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+g5 <- fepois(migrates ~ SPEI:urban_state + SPEI_droughts_intense:urban_state + SPEI_floods_intense:urban_state +
+               SPEI:rural_state + SPEI_droughts_intense:rural_state + SPEI_floods_intense:rural_state +
+               SPEI:urban_state:poor_4 + SPEI_droughts_intense:urban_state:poor_4 + SPEI_floods_intense:urban_state:poor_4 +
+               SPEI:rural_state:poor_4 + SPEI_droughts_intense:rural_state:poor_4 + SPEI_floods_intense:rural_state:poor_4 |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+
+g6 <- fepois(migrates ~ SPEI:urban_state + SPEI_droughts_intense:urban_state + SPEI_floods_intense:urban_state +
+               SPEI:rural_state + SPEI_droughts_intense:rural_state + SPEI_floods_intense:rural_state +
+               SPEI:urban_state:poor_3 + SPEI_droughts_intense:urban_state:poor_3 + SPEI_floods_intense:urban_state:poor_3 +
+               SPEI:rural_state:poor_3 + SPEI_droughts_intense:rural_state:poor_3 + SPEI_floods_intense:rural_state:poor_3 |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+g7 <- fepois(migrates ~ SPEI:urban_state + SPEI_droughts_intense:urban_state + SPEI_floods_intense:urban_state +
+               SPEI:rural_state + SPEI_droughts_intense:rural_state + SPEI_floods_intense:rural_state +
+               SPEI:urban_state:irr_50 + SPEI_droughts_intense:urban_state:irr_50 + SPEI_floods_intense:urban_state:irr_50 +
+               SPEI:rural_state:irr_50 + SPEI_droughts_intense:rural_state:irr_50 + SPEI_floods_intense:rural_state:irr_50 |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+g8 <- fepois(migrates ~ SPEI:urban_state + SPEI_droughts_intense:urban_state + SPEI_floods_intense:urban_state +
+               SPEI:rural_state + SPEI_droughts_intense:rural_state + SPEI_floods_intense:rural_state +
+               SPEI:urban_state:irr_65 + SPEI_droughts_intense:urban_state:irr_65 + SPEI_floods_intense:urban_state:irr_65 +
+               SPEI:rural_state:irr_65 + SPEI_droughts_intense:rural_state:irr_65 + SPEI_floods_intense:rural_state:irr_65 |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+g9 <- fepois(migrates ~ SPEI:urban_state + SPEI_droughts_intense:urban_state + SPEI_floods_intense:urban_state +
+               SPEI:rural_state + SPEI_droughts_intense:rural_state + SPEI_floods_intense:rural_state +
+               SPEI:urban_state:irr_35 + SPEI_droughts_intense:urban_state:irr_35 + SPEI_floods_intense:urban_state:irr_35 +
+               SPEI:rural_state:irr_35 + SPEI_droughts_intense:rural_state:irr_35 + SPEI_floods_intense:rural_state:irr_35 |  
+               origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, cluster = "origin")
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, cluster = "origin", digits = "r3", tex = TRUE)
+
