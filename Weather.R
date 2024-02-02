@@ -19,7 +19,8 @@ pacman::p_load(
   quantreg, #quantile regressions
   geosphere, #distance between cities
   zoo, # fot the na approx function
-  stagg
+  stagg,
+  psych #Summary stats
   )
 
 # 1) Loading data --------------------------------------------------------------
@@ -359,14 +360,14 @@ grids_by_state <- grids_by_state %>%
 
 
 # Convert 'year' in spi_long to numeric
-grids_by_state <- grids_by_state %>%
+grids_by_state_main <- grids_by_state %>%
   mutate(year = as.numeric(year),
          SPEI04pop = as.numeric(SPEI04pop))
 
 
 #Merge datasets
 migration <- migration %>%
-  left_join(grids_by_state, by = c("origin" = "state", "year"))
+  left_join(grids_by_state_main, by = c("origin" = "state", "year"))
 
 #Lags --------------------------------------------------------------------------
 # First, create two versions of SPEI_by_state with the lags
@@ -526,14 +527,14 @@ grids_by_state <- grids_by_state %>%
 
 
 # Convert 'year' in spi_long to numeric
-grids_by_state <- grids_by_state %>%
+grids_by_state_off <- grids_by_state %>%
   mutate(year = as.numeric(year),
          SPEI04v2pop = as.numeric(SPEI04v2pop))
 
 
 #Merge datasets
 migration <- migration %>%
-  left_join(grids_by_state, by = c("origin" = "state", "year"))
+  left_join(grids_by_state_off, by = c("origin" = "state", "year"))
 
 #Lags --------------------------------------------------------------------------
 # First, create two versions of SPEI_by_state with the lags
@@ -826,7 +827,23 @@ migration <- migration %>%
          SPEI04v2pop_droughts_1.5_lag1 = ifelse(SPEI04v2pop_lag1 <= -1.5, SPEI04v2pop_lag1 + 1.5, 0),
          SPEI04v2pop_floods_1.5_lag1 = ifelse(SPEI04v2pop_lag1 >= 1.5, SPEI04v2pop_lag1 - 1.5, 0),
          SPEI04v2pop_droughts_2_lag1 = ifelse(SPEI04v2pop_lag1 <= -2, SPEI04v2pop_lag1 + 2, 0),
-         SPEI04v2pop_floods_2_lag1 = ifelse(SPEI04v2pop_lag1 >= 2, SPEI04v2pop_lag1 - 2, 0))
+         SPEI04v2pop_floods_2_lag1 = ifelse(SPEI04v2pop_lag1 >= 2, SPEI04v2pop_lag1 - 2, 0),
+         SPEI04_droughts_0.5_lag1 = ifelse(SPEI04_lag1 <= -0.5, SPEI04_lag1 + 0.5, 0),
+         SPEI04_floods_0.5_lag1 = ifelse(SPEI04_lag1 >= 0.5, SPEI04_lag1 - 0.5, 0),
+         SPEI04_droughts_1_lag1 = ifelse(SPEI04_lag1 <= -1, SPEI04_lag1 + 1, 0),
+         SPEI04_floods_1_lag1 = ifelse(SPEI04_lag1 >= 1, SPEI04_lag1 - 1, 0),
+         SPEI04_droughts_1.5_lag1 = ifelse(SPEI04_lag1 <= -1.5, SPEI04_lag1 + 1.5, 0),
+         SPEI04_floods_1.5_lag1 = ifelse(SPEI04_lag1 >= 1.5, SPEI04_lag1 - 1.5, 0),
+         SPEI04_droughts_2_lag1 = ifelse(SPEI04_lag1 <= -2, SPEI04_lag1 + 2, 0),
+         SPEI04_floods_2_lag1 = ifelse(SPEI04_lag1 >= 2, SPEI04_lag1 - 2, 0),
+         SPEI04v2_droughts_0.5_lag1 = ifelse(SPEI04v2_lag1 <= -0.5, SPEI04v2_lag1 + 0.5, 0),
+         SPEI04v2_floods_0.5_lag1 = ifelse(SPEI04v2_lag1 >= 0.5, SPEI04v2_lag1 - 0.5, 0),
+         SPEI04v2_droughts_1_lag1 = ifelse(SPEI04v2_lag1 <= -1, SPEI04v2_lag1 + 1, 0),
+         SPEI04v2_floods_1_lag1 = ifelse(SPEI04v2_lag1 >= 1, SPEI04v2_lag1 - 1, 0),
+         SPEI04v2_droughts_1.5_lag1 = ifelse(SPEI04v2_lag1 <= -1.5, SPEI04v2_lag1 + 1.5, 0),
+         SPEI04v2_floods_1.5_lag1 = ifelse(SPEI04v2_lag1 >= 1.5, SPEI04v2_lag1 - 1.5, 0),
+         SPEI04v2_droughts_2_lag1 = ifelse(SPEI04v2_lag1 <= -2, SPEI04v2_lag1 + 2, 0),
+         SPEI04v2_floods_2_lag1 = ifelse(SPEI04v2_lag1 >= 2, SPEI04v2_lag1 - 2, 0))
 
 # 3) Geographical data --------------------------------------------
 
@@ -1048,12 +1065,13 @@ urban <- urban %>%
 
 urban <- urban %>%
   group_by(year) %>%
-  mutate(urban_quintile = as.factor(ntile(urban, 5)),
-         urban_quartile = as.factor(ntile(urban, 4)),
-         urban_tertile = as.factor(ntile(urban, 3)),
-         rural_5 = ifelse(urban_quintile == 1, 1, 0),
-         rural_4 = ifelse(urban_quartile == 1, 1, 0),
-         rural_3 = ifelse(urban_tertile == 1, 1, 0)) %>%
+  mutate(rural = 100 - urban,
+         rural_quintile = as.factor(ntile(rural, 5)),
+         rural_quartile = as.factor(ntile(rural, 4)),
+         rural_tertile = as.factor(ntile(rural, 3)),
+         rural_5 = ifelse(rural_quintile == 5, 1, 0),
+         rural_4 = ifelse(rural_quartile == 4, 1, 0),
+         rural_3 = ifelse(rural_tertile == 3, 1, 0)) %>%
   arrange(state, year) %>%
   ungroup() %>%
   select(-year)
@@ -1228,43 +1246,45 @@ migration_wo_zeros_75 <- migration %>%
 
 
 # 6) Descriptive statistics ----------------------------------------------------
-# Maps -------------------------------------------------------------------------
 
-#Making a map showing SPEI in 2008
-#Merge SPEI values with shapefile
-merged_data_spei <- merge(MY_sf, SPEI_by_state, by.x = "NAME_1", by.y = "state")
+#Table
 
-# Create the map for 2008
-spei_2010 <- merged_data_spei %>%
-  filter(year == 2010)
+migration_desc <- migration
 
-plot_spei_2010 <- ggplot() +
-  geom_sf(data = spei_2010, aes(fill = SPEI), color = "black") +
-  labs(title = "SPEI by State", subtitle = "2010") +
-  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray") +
-  labs(fill = "SPEI Value") +
-  theme_bw()
+desc <- migration_desc %>%
+  mutate(migrates = migrates / 10000,
+         GDP_agri_per = GDP_agri_per * 100,
+         irr = irr * 100) %>%
+  select(origin, year, migrates,
+         SPEIpop, SPEIpop_droughts_1.5, SPEIpop_floods_1.5,
+         SPEI04pop, SPEI04pop_droughts_0.5, SPEI04_floods_0.5,
+         SPEI04v2, SPEI04v2_droughts_1, SPEI04v2_floods_0.5,
+         rural, agri, GDP_agri_per, irr, incidence)
 
-# Create map for 2019
-spei_2019 <- merged_data_spei %>%
-  filter(year == 2019)
+describe(desc)
 
-plot_spei_2019 <- ggplot() +
-  geom_sf(data = spei_2019, aes(fill = SPEI), color = "black") +
-  labs(title = "SPEI by State", subtitle = "2019") +
-  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray") +
-  labs(fill = "SPEI Value") +
-  theme_bw()
+desc_rural <- migration_desc %>%
+  mutate(migrates = migrates / 10000,
+         GDP_agri_per = GDP_agri_per * 100,
+         irr = irr * 100) %>%
+  select(origin, year, migrates,
+         SPEIpop, SPEIpop_droughts_1.5, SPEIpop_floods_1.5,
+         SPEI04pop, SPEI04pop_droughts_0.5, SPEI04_floods_0.5,
+         SPEI04v2, SPEI04v2_droughts_1, SPEI04v2_floods_0.5,
+         rural, rural_quartile)
 
-plot_spei_2010
-plot_spei_2019
 
+x <- desc_rural %>%
+  filter(rural_quartile == 4)
+
+describe(x)
 
 #SPEI plot over the years ----
-plot_spei <- SPEI_by_state %>%
+#SPEI12
+plot_spei <- grids_by_state %>%
   group_by(year) %>%
-  filter(year > 2006) %>%
-  summarise(SPEI = mean(SPEI))
+  filter(year > 2009) %>%
+  summarise(SPEI = mean(SPEIpop))
 
 # Create a new variable 'color' to distinguish positive and negative values
 plot_spei <- plot_spei %>%
@@ -1276,44 +1296,134 @@ color_palette <- c("Positive" = "blue", "Negative" = "red")
 # Create bar plot
 plot_spei <- ggplot(data = plot_spei, aes(x = year, y = SPEI, fill = color)) +
   geom_col() +
-  labs(title = "SPEI",
-       x = "Year") +
+  labs(title = "SPEI, 12 months", x = "Year") +
   theme_minimal() +
-  guides(fill = "none")  # Remove the legend
+  guides(fill = "none") +  # Remove the legend
+  scale_x_continuous(breaks = seq(min(plot_spei$year), max(plot_spei$year), by = 3))
 
-plot_spei
+#Main
+plot_spei_main <- grids_by_state_main %>%
+  group_by(year) %>%
+  filter(year > 2009) %>%
+  summarise(SPEI = mean(SPEI04pop))
 
-#Droughts and floods by state ----
+# Create a new variable 'color' to distinguish positive and negative values
+plot_spei_main <- plot_spei_main %>%
+  mutate(color = ifelse(SPEI >= 0, "Positive", "Negative"))
 
-count <- SPEI_by_state %>%
-  mutate(droughts_count = ifelse(SPEI <= -1.5, 1, 0),
-         floods_count = ifelse(SPEI >= 1.5, 1, 0))
+# Create bar plot
+plot_spei_main <- ggplot(data = plot_spei_main, aes(x = year, y = SPEI, fill = color)) +
+  geom_col() +
+  labs(title = "SPEI, main growing season", x = "Year") +
+  theme_minimal() +
+  guides(fill = "none") +  # Remove the legend
+  scale_x_continuous(breaks = seq(min(plot_spei_main$year), max(plot_spei_main$year), by = 3))
 
-count <- count %>%
-  group_by(state) %>%
-  summarise(droughts_count  = sum(droughts_count),
-            floods_count = sum(floods_count),
-            extremes_count = ifelse(droughts_count == 0 | floods_count == 0, 0, droughts_count + floods_count)) 
 
-#Occurence of droughts by state
-count$state <- reorder(count$state, count$droughts_count)
 
-plot1 <- ggplot(count, aes(x = droughts_count, y = state)) +
-  geom_col()
+#Off
+plot_spei_off <- grids_by_state_off %>%
+  group_by(year) %>%
+  filter(year > 2009) %>%
+  summarise(SPEI = mean(SPEI04v2pop))
 
-#Occurence of floods by state
-count$state <- reorder(count$state, count$floods_count)
+# Create a new variable 'color' to distinguish positive and negative values
+plot_spei_off <- plot_spei_off %>%
+  mutate(color = ifelse(SPEI >= 0, "Positive", "Negative"))
 
-plot2 <- ggplot(count, aes(x = floods_count, y = state)) +
-  geom_col()
+# Create bar plot
+plot_spei_off <- ggplot(data = plot_spei_off, aes(x = year, y = SPEI, fill = color)) +
+  geom_col() +
+  labs(title = "SPEI, secondary growing season", x = "Year") +
+  theme_minimal() +
+  guides(fill = "none") +  # Remove the legend
+  scale_x_continuous(breaks = seq(min(plot_spei_off$year), max(plot_spei_off$year), by = 3))
 
-#States experiencing both
-count$state <- reorder(count$state, count$extremes_count)
 
-plot3 <- ggplot(count, aes(x = extremes_count, y = state)) +
-  geom_col()
+grid.arrange(plot_spei, plot_spei_main, plot_spei_off, ncol = 2)
 
-grid.arrange(plot1, plot2, plot3, ncol = 3)
+
+# Maps ----
+
+#By year
+#Making a map showing SPEI in 2010
+#Merge SPEI values with shapefile
+merged_data_spei <- merge(MY_sf, grids_by_state, by.x = "NAME_1", by.y = "state")
+
+# Create a list to store all the plots
+plot_list <- list()
+
+# Loop through the years and create individual plots
+for (i in 2010:2019) {
+  spei_data <- merged_data_spei %>%
+    filter(year == i)
+  
+  plot <- ggplot() +
+    geom_sf(data = spei_data, aes(fill = SPEIpop), color = "black") +
+    labs(title = paste("SPEI by State"), subtitle = as.character(i)) +
+    scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray", limits = c(min(merged_data_spei$SPEIpop), max(merged_data_spei$SPEIpop))) +
+    labs(fill = "SPEI Value") +
+    theme_bw() +
+    theme(plot.margin = margin(0, 0, 0, 0))
+  
+  plot_list[[as.character(i)]] <- plot
+}
+
+# Arrange all the plots in a grid
+grid.arrange(grobs = plot_list, ncol = 2)
+
+
+#Maps vulnerability per region
+
+desc_2010 <- desc %>%
+  filter(year == 2010) 
+  
+
+#merging with shapefile
+desc_merged <- merge(MY_sf, desc_2010, by.x = "NAME_1", by.y = "origin")
+
+plot_rural <- ggplot() +
+  geom_sf(data = desc_merged, aes(fill = rural), color = "black") +
+  labs(title = "Ruralization rate", subtitle = "2010") +
+  labs(fill = "Rate (%)") +
+  scale_fill_gradient(low = "white", high = "red") +  # Adjust the color scale
+  theme_bw()
+
+plot_agri <- ggplot() +
+  geom_sf(data = desc_merged, aes(fill = agri), color = "black") +
+  labs(title = "Ag. labour share", subtitle = "2010") +
+  labs(fill = "Share (%)") +
+  scale_fill_gradient(low = "white", high = "red") +  # Adjust the color scale
+  theme_bw()
+
+plot_GDP <- ggplot() +
+  geom_sf(data = desc_merged, aes(fill = GDP_agri_per), color = "black") +
+  labs(title = "Ag. value-added as a share of GDP ", subtitle = "2010") +
+  labs(fill = "Share (%)") +
+  scale_fill_gradient(low = "white", high = "red") +  # Adjust the color scale
+  theme_bw()
+
+plot_irr <- ggplot() +
+  geom_sf(data = desc_merged, aes(fill = irr), color = "black") +
+  labs(title = "Irrigation area over total cropland", subtitle = "2010") +
+  labs(fill = "Share (%)") +
+  scale_fill_gradient(low = "white", high = "red") +  # Adjust the color scale
+  theme_bw()
+
+plot_malaria <- ggplot() +
+  geom_sf(data = desc_merged, aes(fill = incidence), color = "black") +
+  labs(title = "Malaria Incidence", subtitle = "2010") +
+  labs(fill = "Incidence") +
+  scale_fill_gradient(low = "white", high = "red") +  # Adjust the color scale
+  theme_bw()
+
+grid.arrange(plot_rural,
+             plot_agri,
+             plot_GDP,
+             plot_irr,
+             plot_malaria,
+             ncol = 2)
+
 
 
 # 7) Final results ------------------------------------------------------------
@@ -1323,166 +1433,677 @@ migration <- migration %>%
   group_by(year) %>%
   mutate(across(starts_with("SPEI"), ~ . - mean(., na.rm = TRUE)))
 
-# Fixed effects ----------------------------------------------------------------
-#Poisson
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + log(distance) + border | sw0(year + origin + destination, origin + destination^year, origin + destination^year + origin^destination), fixef.rm = "none", migration)
-
-etable(g, cluster = "origin")
-
-#Lags
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + log(distance) + border | sw0(year + origin + destination, origin + destination^year, origin + destination^year + origin^destination), fixef.rm = "none", migration)
-
-etable(g, cluster = "origin")
-
-
-#Response function
-#Saving the estimate in a table
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-table <- coeftable(g, cluster = "origin")
-
-# Create a data frame with a range of SPEI values
-spei_values <- data.frame(SPEIpop = seq(-3, 3, by = 0.01))
-
-# Define the estimated coefficients
-slope_droughts <- table[2, 1] + table[1, 1]
-slope_floods <- table[3, 1] + table[1, 1]
-slope_normal <- table[1, 1]
-
-#Calculate predicted values for each segment
-spei_values <- spei_values %>%
-  mutate(marginal = ifelse(spei_values$SPEIpop <= -1.5, (-1.5 * slope_normal) + slope_droughts * (SPEIpop + 1.5),
-                           ifelse(spei_values$SPEIpop >= 1.5, (1.5 * slope_normal) + slope_floods * (SPEIpop - 1.5),
-                                  slope_normal * SPEIpop)))
-
-#Response function plot
-ggplot(spei_values, aes(x = SPEIpop, y = marginal)) +
-  geom_line() +
-  theme_minimal() +
-  labs(x = "SPEI", y = "Migration rates") +
-  geom_hline(yintercept = 0, linetype = 2, colour = "red") +
-  geom_segment(aes(x = -1.5 , xend = 1.5,y = slope_normal, yend = slope_normal), color = "grey") +
-  geom_segment(aes(x = 1.5 , xend = 3,y = slope_floods, yend = slope_floods), color = "grey") +
-  geom_segment(aes(x = -3 , xend = -1.5,y = slope_droughts, yend = slope_droughts), color = "grey") +
-  scale_x_continuous(breaks = seq(-3, 3, by = 0.5)) +
-  scale_y_continuous(breaks = seq(-2, 2, by = 0.5))
-
-#SPEI variations ---------------------------------------------------------------
-
-# g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 7.1) Fixed effects -----------------------------------------------------------
+# #Poisson
+# g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + log(distance) + border | sw0(year + origin + destination, origin + destination^year, origin + destination^year + origin^destination), fixef.rm = "none", migration)
 # 
-# etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#Lag specs
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#tests -------------------------------------------------------------------------
-
-#different SD 
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_0.5 + mvsw(SPEIpop_droughts_1.5, SPEIpop_floods_1.5) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_1 + mvsw(SPEIpop_droughts_1.5, SPEIpop_floods_2) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_1.5 + mvsw(SPEIpop_droughts_1.5) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_0.5 + mvsw(SPEIpop_droughts_2, SPEIpop_floods_1.5) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_1 + mvsw(SPEIpop_droughts_2, SPEIpop_floods_2) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_1.5 + mvsw(SPEIpop_droughts_2) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_0.5 + mvsw(SPEIpop_floods_1.5) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1 + mvsw(SPEIpop_floods_2) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
+# etable(g, cluster = "origin")
 
 #Lags
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_0.5 +  SPEIpop_lag1 + SPEIpop_droughts_0.5_lag1 + SPEIpop_floods_0.5_lag1 + mvsw(SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1, SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_1 + SPEIpop_lag1 + SPEIpop_droughts_0.5_lag1 + SPEIpop_floods_1_lag1 + mvsw(SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1, SPEIpop_floods_2 + SPEIpop_floods_2_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_0.5_lag1 + SPEIpop_floods_1.5_lag1 + mvsw(SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g <- fepois(migrates ~ SPEIpop +  SPEIpop_lag1 + 
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+              SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 + 
+              log(distance) + border | sw0(year + origin + destination, origin + destination^year, origin + destination^year + origin^destination), fixef.rm = "none", migration)
+
+etable(g, cluster = "origin")
+
+#Latex
+etable(g, digits = "r3", cluster = "origin", tex = TRUE)
+
+
+
+# #Response function
+# #Saving the estimate in a table
+# g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# table <- coeftable(g, cluster = "origin")
+# 
+# # Create a data frame with a range of SPEI values
+# spei_values <- data.frame(SPEIpop = seq(-3, 3, by = 0.01))
+# 
+# # Define the estimated coefficients
+# slope_droughts <- table[2, 1] + table[1, 1]
+# slope_floods <- table[3, 1] + table[1, 1]
+# slope_normal <- table[1, 1]
+# 
+# #Calculate predicted values for each segment
+# spei_values <- spei_values %>%
+#   mutate(marginal = ifelse(spei_values$SPEIpop <= -1.5, (-1.5 * slope_normal) + slope_droughts * (SPEIpop + 1.5),
+#                            ifelse(spei_values$SPEIpop >= 1.5, (1.5 * slope_normal) + slope_floods * (SPEIpop - 1.5),
+#                                   slope_normal * SPEIpop)))
+# 
+# #Response function plot
+# ggplot(spei_values, aes(x = SPEIpop, y = marginal)) +
+#   geom_line() +
+#   theme_minimal() +
+#   labs(x = "SPEI", y = "Migration rates") +
+#   geom_hline(yintercept = 0, linetype = 2, colour = "red") +
+#   geom_segment(aes(x = -1.5 , xend = 1.5,y = slope_normal, yend = slope_normal), color = "grey") +
+#   geom_segment(aes(x = 1.5 , xend = 3,y = slope_floods, yend = slope_floods), color = "grey") +
+#   geom_segment(aes(x = -3 , xend = -1.5,y = slope_droughts, yend = slope_droughts), color = "grey") +
+#   scale_x_continuous(breaks = seq(-3, 3, by = 0.5)) +
+#   scale_y_continuous(breaks = seq(-2, 2, by = 0.5))
+
+# 7.2) SPEI variations ---------------------------------------------------------
+
+g <- fepois(migrates ~ SPEIpop + SPEIpop_lag1 +
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+              SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_lag1 +
+               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5_lag1 +
+               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_lag1 +
+               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1_lag1 +
+               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
 
 etable(g, g2, g3, digits = "r3", cluster = "origin")
 
+#Latex
+etable(g, g2, g3, digits = "r3", cluster = "origin", tex = TRUE)
 
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_0.5 + SPEIpop_lag1 + SPEIpop_droughts_1_lag1 + SPEIpop_floods_0.5_lag1 + mvsw(SPEIpop_droughts_2 + SPEIpop_droughts_2_lag1, SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_1 + SPEIpop_lag1 + SPEIpop_droughts_1_lag1 + SPEIpop_floods_1_lag1 + mvsw(SPEIpop_droughts_2 + SPEIpop_droughts_2_lag1, SPEIpop_floods_2 + SPEIpop_floods_2_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1_lag1 + SPEIpop_floods_1.5_lag1 + mvsw(SPEIpop_droughts_2 + SPEIpop_droughts_2_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_0.5 +  SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_0.5_lag1 + mvsw(SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1_lag1 + mvsw(SPEIpop_floods_2 + SPEIpop_floods_2_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-
-
-#7.2.1) Heterogeneous effects --------------------------------------------------
+#7.3) Heterogeneous effects ----------------------------------------------------
 
 #Agri share --------------------------------------------------------------------
 
-#No lags ---
-# g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:agri_sh_5 + SPEIpop_droughts_1.5:agri_sh_5 + SPEIpop_floods_1.5:agri_sh_5|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:agri_sh_5 + SPEI04pop_droughts_0.5:agri_sh_5 + SPEI04pop_floods_0.5:agri_sh_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:agri_sh_5 + SPEI04v2pop_droughts_1:agri_sh_5 + SPEI04v2pop_floods_0.5:agri_sh_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# 
-# etable(g, g2, g3, digits = "r3", cluster = "origin")
-# 
-# g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:agri_sh_4 + SPEIpop_droughts_1.5:agri_sh_4 + SPEIpop_floods_1.5:agri_sh_4|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:agri_sh_4 + SPEI04pop_droughts_0.5:agri_sh_4 + SPEI04pop_floods_0.5:agri_sh_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:agri_sh_4 + SPEI04v2pop_droughts_1:agri_sh_4 + SPEI04v2pop_floods_0.5:agri_sh_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# 
-# etable(g, g2, g3, digits = "r3", cluster = "origin")
-# 
-# g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:agri_sh_3 + SPEIpop_droughts_1.5:agri_sh_3 + SPEIpop_floods_1.5:agri_sh_3|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:agri_sh_3 + SPEI04pop_droughts_0.5:agri_sh_3 + SPEI04pop_floods_0.5:agri_sh_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:agri_sh_3 + SPEI04v2pop_droughts_1:agri_sh_3 + SPEI04v2pop_floods_0.5:agri_sh_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# 
-# etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#Lags
 #Agriculture share is quite a good candidate
 
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:agri_sh_5 + SPEIpop_droughts_1.5:agri_sh_5 + SPEIpop_floods_1.5:agri_sh_5 + SPEIpop_lag1:agri_sh_5 + SPEIpop_droughts_1.5_lag1:agri_sh_5 + SPEIpop_floods_1.5_lag1:agri_sh_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:agri_sh_5 + SPEI04pop_droughts_0.5:agri_sh_5 + SPEI04pop_floods_0.5:agri_sh_5 +  SPEI04pop_lag1:agri_sh_5 + SPEI04pop_droughts_0.5_lag1:agri_sh_5 + SPEI04pop_floods_0.5_lag1:agri_sh_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:agri_sh_5 + SPEI04v2pop_droughts_1:agri_sh_5 + SPEI04v2pop_floods_0.5:agri_sh_5 + SPEI04v2pop_lag1:agri_sh_5 + SPEI04v2pop_droughts_1_lag1:agri_sh_5 + SPEI04v2pop_floods_0.5_lag1:agri_sh_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+#SPEI 12
+g <- fepois(migrates ~ SPEIpop + SPEIpop:agri_sh_5 + 
+              SPEIpop_lag1 + SPEIpop_lag1:agri_sh_5 +
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:agri_sh_5 + 
+              SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:agri_sh_5 +
+              SPEIpop_floods_1.5 + + SPEIpop_floods_1.5:agri_sh_5 + 
+              SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:agri_sh_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop:agri_sh_4 +
+               SPEIpop_lag1 + SPEIpop_lag1:agri_sh_4 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:agri_sh_4 +
+               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:agri_sh_4 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:agri_sh_4 +
+               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:agri_sh_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop:agri_sh_3 +
+               SPEIpop_lag1 +  SPEIpop_lag1:agri_sh_3 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:agri_sh_3 +
+               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:agri_sh_3 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:agri_sh_3 +  
+               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:agri_sh_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
 
-etable(g, g2, g3, digits = "r3", cluster = "origin")
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+# 
+# #Latex
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin", tex = TRUE)
 
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:agri_sh_4 + SPEIpop_droughts_1.5:agri_sh_4 + SPEIpop_floods_1.5:agri_sh_4 + SPEIpop_lag1:agri_sh_4 + SPEIpop_droughts_1.5_lag1:agri_sh_4 + SPEIpop_floods_1.5_lag1:agri_sh_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:agri_sh_4 + SPEI04pop_droughts_0.5:agri_sh_4 + SPEI04pop_floods_0.5:agri_sh_4 +  SPEI04pop_lag1:agri_sh_4 + SPEI04pop_droughts_0.5_lag1:agri_sh_4 + SPEI04pop_floods_0.5_lag1:agri_sh_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:agri_sh_4 + SPEI04v2pop_droughts_1:agri_sh_4 + SPEI04v2pop_floods_0.5:agri_sh_4 + SPEI04v2pop_lag1:agri_sh_4 + SPEI04v2pop_droughts_1_lag1:agri_sh_4 + SPEI04v2pop_floods_0.5_lag1:agri_sh_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
 
-etable(g, g2, g3, digits = "r3", cluster = "origin")
 
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:agri_sh_3 + SPEIpop_droughts_1.5:agri_sh_3 + SPEIpop_floods_1.5:agri_sh_3 + SPEIpop_lag1:agri_sh_3 + SPEIpop_droughts_1.5_lag1:agri_sh_3 + SPEIpop_floods_1.5_lag1:agri_sh_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:agri_sh_3 + SPEI04pop_droughts_0.5:agri_sh_3 + SPEI04pop_floods_0.5:agri_sh_3 +  SPEI04pop_lag1:agri_sh_3 + SPEI04pop_droughts_0.5_lag1:agri_sh_3 + SPEI04pop_floods_0.5_lag1:agri_sh_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:agri_sh_3 + SPEI04v2pop_droughts_1:agri_sh_3 + SPEI04v2pop_floods_0.5:agri_sh_3 + SPEI04v2pop_lag1:agri_sh_3 + SPEI04v2pop_droughts_1_lag1:agri_sh_3 + SPEI04v2pop_floods_0.5_lag1:agri_sh_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+#Main growing season
+g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop:agri_sh_5 +
+              SPEI04pop_lag1 + SPEI04pop_lag1:agri_sh_5 +
+              SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:agri_sh_5 +
+              SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:agri_sh_5 +
+              SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:agri_sh_5 +
+              SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:agri_sh_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g5 <- fepois(migrates ~ SPEI04pop + SPEI04pop:agri_sh_4 +
+              SPEI04pop_lag1 + SPEI04pop_lag1:agri_sh_4 +
+              SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:agri_sh_4 +
+              SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:agri_sh_4 +
+              SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:agri_sh_4 +
+              SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:agri_sh_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g6 <- fepois(migrates ~ SPEI04pop + SPEI04pop:agri_sh_3 +
+              SPEI04pop_lag1 + SPEI04pop_lag1:agri_sh_3 +
+              SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:agri_sh_3 +
+              SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:agri_sh_3 +
+              SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:agri_sh_3 +
+              SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:agri_sh_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
 
-etable(g, g2, g3, digits = "r3", cluster = "origin")
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
 
-#%
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:agri + SPEIpop_droughts_1.5:agri + SPEIpop_floods_1.5:agri + SPEIpop_lag1:agri + SPEIpop_droughts_1.5_lag1:agri + SPEIpop_floods_1.5_lag1:agri |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:agri + SPEI04pop_droughts_0.5:agri + SPEI04pop_floods_0.5:agri +  SPEI04pop_lag1:agri + SPEI04pop_droughts_0.5_lag1:agri + SPEI04pop_floods_0.5_lag1:agri |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:agri + SPEI04v2pop_droughts_1:agri + SPEI04v2pop_floods_0.5:agri + SPEI04v2pop_lag1:agri + SPEI04v2pop_droughts_1_lag1:agri + SPEI04v2pop_floods_0.5_lag1:agri |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
 
-etable(g, g2, g3, digits = "r3", cluster = "origin")
+#Off growing season
+g7 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:agri_sh_5 +
+              SPEI04v2pop_lag1 + SPEI04v2pop_lag1:agri_sh_5 +
+              SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:agri_sh_5 +
+              SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:agri_sh_5 +
+              SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:agri_sh_5 +   
+              SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:agri_sh_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g8 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:agri_sh_4 +
+              SPEI04v2pop_lag1 + SPEI04v2pop_lag1:agri_sh_4 +
+              SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:agri_sh_4 +
+              SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:agri_sh_4 +
+              SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:agri_sh_4 +   
+              SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:agri_sh_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g9 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:agri_sh_3 +
+              SPEI04v2pop_lag1 + SPEI04v2pop_lag1:agri_sh_3 +
+              SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:agri_sh_3 +
+              SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:agri_sh_3 +
+              SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:agri_sh_3 +   
+              SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:agri_sh_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
 
-#tests
-x <- migration %>%
-  select(SPEI_droughts_1.5_lag1, SPEI_droughts_1.5, SPEI_floods_1.5_lag1, SPEI_floods_1.5, agri_sh_4) %>%
-  filter(agri_sh_4 == 1)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin")
+
+#Latex
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin", tex = TRUE)
+
+
+#Percentages
+
+# g <- fepois(migrates ~ SPEIpop + SPEIpop:agri +
+#                SPEIpop_lag1 + SPEIpop_lag1:agri +
+#                SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:agri +
+#                SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:agri +
+#                SPEIpop_floods_1.5 + SPEIpop_floods_1.5:agri +
+#                SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:agri |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop:agri +
+#               SPEI04pop_lag1 + SPEI04pop_lag1:agri +
+#               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:agri +
+#               SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:agri +
+#               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:agri +
+#               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:agri |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:agri +
+#                SPEI04v2pop_lag1 + SPEI04v2pop_lag1:agri +
+#                SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:agri +
+#                SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:agri +
+#                SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:agri +
+#                SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:agri |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, digits = "r3", cluster = "origin", tex = TRUE)
+
+
+#Malaria ----
+
+#SPEI 12
+g <- fepois(migrates ~ SPEIpop + SPEIpop:malaria_high_5 + 
+              SPEIpop_lag1 + SPEIpop_lag1:malaria_high_5 +
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:malaria_high_5 + 
+              SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:malaria_high_5 +
+              SPEIpop_floods_1.5 + + SPEIpop_floods_1.5:malaria_high_5 + 
+              SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:malaria_high_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop:malaria_high_4 +
+               SPEIpop_lag1 + SPEIpop_lag1:malaria_high_4 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:malaria_high_4 +
+               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:malaria_high_4 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:malaria_high_4 +
+               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:malaria_high_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop:malaria_high_3 +
+               SPEIpop_lag1 +  SPEIpop_lag1:malaria_high_3 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:malaria_high_3 +
+               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:malaria_high_3 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:malaria_high_3 +  
+               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:malaria_high_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEIpop + SPEIpop:incidence +
+#                SPEIpop_lag1 + SPEIpop_lag1:incidence +
+#                SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:incidence + 
+#                SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:incidence +
+#                SPEIpop_floods_1.5 + SPEIpop_floods_1.5:incidence +
+#                SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:incidence |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+#Main growing season
+g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop:malaria_high_5 +
+              SPEI04pop_lag1 + SPEI04pop_lag1:malaria_high_5 +
+              SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:malaria_high_5 +
+              SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:malaria_high_5 +
+              SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:malaria_high_5 +
+              SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:malaria_high_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g5 <- fepois(migrates ~ SPEI04pop + SPEI04pop:malaria_high_4 +
+               SPEI04pop_lag1 + SPEI04pop_lag1:malaria_high_4 +
+               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:malaria_high_4 +
+               SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:malaria_high_4 +
+               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:malaria_high_4 +
+               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:malaria_high_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g6 <- fepois(migrates ~ SPEI04pop + SPEI04pop:malaria_high_3 +
+               SPEI04pop_lag1 + SPEI04pop_lag1:malaria_high_3 +
+               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:malaria_high_3 +
+               SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:malaria_high_3 +
+               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:malaria_high_3 +
+               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:malaria_high_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop:incidence +
+#                SPEI04pop_lag1 + SPEI04pop_lag1:incidence +
+#                SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:incidence +
+#                SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:incidence +
+#                SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:incidence +
+#                SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:incidence |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+#Off growing season
+g7 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:malaria_high_5 +
+              SPEI04v2pop_lag1 + SPEI04v2pop_lag1:malaria_high_5 +
+              SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:malaria_high_5 +
+              SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:malaria_high_5 +
+              SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:malaria_high_5 +   
+              SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:malaria_high_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g8 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:malaria_high_4 +
+               SPEI04v2pop_lag1 + SPEI04v2pop_lag1:malaria_high_4 +
+               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:malaria_high_4 +
+               SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:malaria_high_4 +
+               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:malaria_high_4 +   
+               SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:malaria_high_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g9 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:malaria_high_3 +
+               SPEI04v2pop_lag1 + SPEI04v2pop_lag1:malaria_high_3 +
+               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:malaria_high_3 +
+               SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:malaria_high_3 +
+               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:malaria_high_3 +   
+               SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:malaria_high_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:incidence +
+#                SPEI04v2pop_lag1 + SPEI04v2pop_lag1:incidence +
+#                SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:incidence +
+#                SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:incidence +
+#                SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:incidence +   
+#                SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:incidence |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+#Malaria is a great candidate
+
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin")
+
+#Latex
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin", tex = TRUE)
+
+
+#Rural state ----
+
+#Rural is a great one
+
+
+#SPEI 12
+g <- fepois(migrates ~ SPEIpop + SPEIpop:rural_5 + 
+              SPEIpop_lag1 + SPEIpop_lag1:rural_5 +
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:rural_5 + 
+              SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:rural_5 +
+              SPEIpop_floods_1.5 + + SPEIpop_floods_1.5:rural_5 + 
+              SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:rural_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop:rural_4 +
+               SPEIpop_lag1 + SPEIpop_lag1:rural_4 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:rural_4 +
+               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:rural_4 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:rural_4 +
+               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:rural_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop:rural_3 +
+               SPEIpop_lag1 +  SPEIpop_lag1:rural_3 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:rural_3 +
+               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:rural_3 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:rural_3 +  
+               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:rural_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEIpop + SPEIpop:urban +
+#                SPEIpop_lag1 + SPEIpop_lag1:urban +
+#                SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:urban + 
+#                SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:urban +
+#                SPEIpop_floods_1.5 + SPEIpop_floods_1.5:urban +
+#                SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:urban |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+#Main growing season
+g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop:rural_5 +
+              SPEI04pop_lag1 + SPEI04pop_lag1:rural_5 +
+              SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:rural_5 +
+              SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:rural_5 +
+              SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:rural_5 +
+              SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:rural_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g5 <- fepois(migrates ~ SPEI04pop + SPEI04pop:rural_4 +
+               SPEI04pop_lag1 + SPEI04pop_lag1:rural_4 +
+               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:rural_4 +
+               SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:rural_4 +
+               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:rural_4 +
+               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:rural_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g6 <- fepois(migrates ~ SPEI04pop + SPEI04pop:rural_3 +
+               SPEI04pop_lag1 + SPEI04pop_lag1:rural_3 +
+               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:rural_3 +
+               SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:rural_3 +
+               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:rural_3 +
+               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:rural_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop:urban +
+#                SPEI04pop_lag1 + SPEI04pop_lag1:urban +
+#                SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:urban +
+#                SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:urban +
+#                SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:urban +
+#                SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:urban |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+#Off growing season
+g7 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:rural_5 +
+              SPEI04v2pop_lag1 + SPEI04v2pop_lag1:rural_5 +
+              SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:rural_5 +
+              SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:rural_5 +
+              SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:rural_5 +   
+              SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:rural_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g8 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:rural_4 +
+               SPEI04v2pop_lag1 + SPEI04v2pop_lag1:rural_4 +
+               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:rural_4 +
+               SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:rural_4 +
+               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:rural_4 +   
+               SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:rural_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g9 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:rural_3 +
+               SPEI04v2pop_lag1 + SPEI04v2pop_lag1:rural_3 +
+               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:rural_3 +
+               SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:rural_3 +
+               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:rural_3 +   
+               SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:rural_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:urban +
+#                SPEI04v2pop_lag1 + SPEI04v2pop_lag1:urban +
+#                SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:urban +
+#                SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:urban +
+#                SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:urban +   
+#                SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:urban |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin")
+
+#Latex
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin", tex = TRUE)
+
+
+#Agri --------------------------------------------------------------------------
+
+
+#SPEI 12
+g <- fepois(migrates ~ SPEIpop + SPEIpop:agri_5 + 
+              SPEIpop_lag1 + SPEIpop_lag1:agri_5 +
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:agri_5 + 
+              SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:agri_5 +
+              SPEIpop_floods_1.5 + + SPEIpop_floods_1.5:agri_5 + 
+              SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:agri_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop:agri_4 +
+               SPEIpop_lag1 + SPEIpop_lag1:agri_4 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:agri_4 +
+               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:agri_4 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:agri_4 +
+               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:agri_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop:agri_3 +
+               SPEIpop_lag1 +  SPEIpop_lag1:agri_3 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:agri_3 +
+               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:agri_3 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:agri_3 +  
+               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:agri_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEIpop + SPEIpop:GDP_agri_per +
+#                SPEIpop_lag1 + SPEIpop_lag1:GDP_agri_per +
+#                SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:GDP_agri_per + 
+#                SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:GDP_agri_per +
+#                SPEIpop_floods_1.5 + SPEIpop_floods_1.5:GDP_agri_per +
+#                SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:GDP_agri_per |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+#Main growing season
+g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop:agri_5 +
+              SPEI04pop_lag1 + SPEI04pop_lag1:agri_5 +
+              SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:agri_5 +
+              SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:agri_5 +
+              SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:agri_5 +
+              SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:agri_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g5 <- fepois(migrates ~ SPEI04pop + SPEI04pop:agri_4 +
+               SPEI04pop_lag1 + SPEI04pop_lag1:agri_4 +
+               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:agri_4 +
+               SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:agri_4 +
+               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:agri_4 +
+               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:agri_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g6 <- fepois(migrates ~ SPEI04pop + SPEI04pop:agri_3 +
+               SPEI04pop_lag1 + SPEI04pop_lag1:agri_3 +
+               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:agri_3 +
+               SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:agri_3 +
+               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:agri_3 +
+               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:agri_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop:GDP_agri_per +
+#                SPEI04pop_lag1 + SPEI04pop_lag1:GDP_agri_per +
+#                SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:GDP_agri_per +
+#                SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:GDP_agri_per +
+#                SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:GDP_agri_per +
+#                SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:GDP_agri_per |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+#Off growing season
+g7 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:agri_5 +
+              SPEI04v2pop_lag1 + SPEI04v2pop_lag1:agri_5 +
+              SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:agri_5 +
+              SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:agri_5 +
+              SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:agri_5 +   
+              SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:agri_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g8 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:agri_4 +
+               SPEI04v2pop_lag1 + SPEI04v2pop_lag1:agri_4 +
+               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:agri_4 +
+               SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:agri_4 +
+               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:agri_4 +   
+               SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:agri_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g9 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:agri_3 +
+               SPEI04v2pop_lag1 + SPEI04v2pop_lag1:agri_3 +
+               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:agri_3 +
+               SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:agri_3 +
+               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:agri_3 +   
+               SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:agri_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:GDP_agri_per +
+#                SPEI04v2pop_lag1 + SPEI04v2pop_lag1:GDP_agri_per +
+#                SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:GDP_agri_per +
+#                SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:GDP_agri_per +
+#                SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:GDP_agri_per +   
+#                SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:GDP_agri_per |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+#Results
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin")
+
+#Latex
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin", tex = TRUE)
+
+#Irrigation --------------------------------------------------------------------
+#Good results
+
+#SPEI 12
+g <- fepois(migrates ~ SPEIpop + SPEIpop:irr_5 + 
+              SPEIpop_lag1 + SPEIpop_lag1:irr_5 +
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:irr_5 + 
+              SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:irr_5 +
+              SPEIpop_floods_1.5 + + SPEIpop_floods_1.5:irr_5 + 
+              SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:irr_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop:irr_4 +
+               SPEIpop_lag1 + SPEIpop_lag1:irr_4 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:irr_4 +
+               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:irr_4 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:irr_4 +
+               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:irr_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop:irr_3 +
+               SPEIpop_lag1 +  SPEIpop_lag1:irr_3 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:irr_3 +
+               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:irr_3 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:irr_3 +  
+               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:irr_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEIpop + SPEIpop:irr +
+#                SPEIpop_lag1 + SPEIpop_lag1:irr +
+#                SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:irr + 
+#                SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:irr +
+#                SPEIpop_floods_1.5 + SPEIpop_floods_1.5:irr +
+#                SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:irr |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+#Main growing season
+g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop:irr_5 +
+              SPEI04pop_lag1 + SPEI04pop_lag1:irr_5 +
+              SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:irr_5 +
+              SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:irr_5 +
+              SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:irr_5 +
+              SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:irr_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g5 <- fepois(migrates ~ SPEI04pop + SPEI04pop:irr_4 +
+               SPEI04pop_lag1 + SPEI04pop_lag1:irr_4 +
+               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:irr_4 +
+               SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:irr_4 +
+               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:irr_4 +
+               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:irr_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g6 <- fepois(migrates ~ SPEI04pop + SPEI04pop:irr_3 +
+               SPEI04pop_lag1 + SPEI04pop_lag1:irr_3 +
+               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:irr_3 +
+               SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:irr_3 +
+               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:irr_3 +
+               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:irr_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop:irr +
+#                SPEI04pop_lag1 + SPEI04pop_lag1:irr +
+#                SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:irr +
+#                SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:irr +
+#                SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:irr +
+#                SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:irr |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+#Off growing season
+g7 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:irr_5 +
+              SPEI04v2pop_lag1 + SPEI04v2pop_lag1:irr_5 +
+              SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:irr_5 +
+              SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:irr_5 +
+              SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:irr_5 +   
+              SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:irr_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g8 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:irr_4 +
+               SPEI04v2pop_lag1 + SPEI04v2pop_lag1:irr_4 +
+               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:irr_4 +
+               SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:irr_4 +
+               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:irr_4 +   
+               SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:irr_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g9 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:irr_3 +
+               SPEI04v2pop_lag1 + SPEI04v2pop_lag1:irr_3 +
+               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:irr_3 +
+               SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:irr_3 +
+               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:irr_3 +   
+               SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:irr_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# g4 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:irr +
+#                SPEI04v2pop_lag1 + SPEI04v2pop_lag1:irr +
+#                SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:irr +
+#                SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:irr +
+#                SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:irr +   
+#                SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:irr |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+#Results
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin")
+
+#Latex
+etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin", tex = TRUE)
+
+
+
+#8) Robustness tests -----------------------------------------------------------
+
+#8.1) OLS vs PPML --------------------------------------------------------------
+
+lm <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration)
+g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+lm2 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_zeros)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros)
+
+lm3 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_zeros_75)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros_75)
+
+lm4 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_high)
+g4 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none" ,migration_wo_high)
+
+etable(lm, lm2, lm3, lm4, g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+#Lags
+lm <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_lag1 +
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+              SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g <- fepois(migrates ~ SPEIpop + SPEIpop_lag1 +
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+              SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+lm2 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_lag1 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop_lag1 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros)
+
+lm3 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_lag1 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros_75)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop_lag1 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros_75)
+
+lm4 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_lag1 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_high)
+g4 <- fepois(migrates ~ SPEIpop + SPEIpop_lag1 +
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+               SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_high)
+
+
+
+etable(lm, lm2, lm3, lm4, g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+etable(lm, lm2, lm3, lm4, g, g2, g3, g4, digits = "r3", cluster = "origin", tex = TRUE)
+
+
+#8.2) Area weighted ------------------------------------------------------------
+
+#Population weighted
+g <- fepois(migrates ~ SPEIpop + SPEIpop_lag1 +
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+              SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_lag1 +
+               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5_lag1 +
+               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_lag1 +
+               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1_lag1 +
+               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+
+#Area weighted
+g4 <- fepois(migrates ~ SPEI + SPEI_lag1 +
+              SPEI_droughts_1.5 + SPEI_droughts_1.5_lag1 +
+              SPEI_floods_1.5 + SPEI_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g5 <- fepois(migrates ~ SPEI04 + SPEI04_lag1 +
+               SPEI04_droughts_0.5 + SPEI04_droughts_0.5_lag1 +
+               SPEI04_floods_0.5 + SPEI04_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g6 <- fepois(migrates ~ SPEI04v2 + SPEI04v2_lag1 +
+               SPEI04v2_droughts_1 + SPEI04v2_droughts_1_lag1 +
+               SPEI04v2_floods_0.5 + SPEI04v2_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, g2, g3, g4, g5, g6, digits = "r3", cluster = "origin")
+
+#Latex
+etable(g, g2, g3, g4, g5, g6, digits = "r3", cluster = "origin", tex = TRUE)
+
+
+#9) Appendix -------------------------------------------------------------------
+ 
+#9.1) Fixed effects ------------------------------------------------------------
+
+#OLS
+lm <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_lag1 +
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+              SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 + 
+              log(distance) + border | sw0(year + origin + destination, origin + destination^year, origin + destination^year + origin^destination), migration)
+
+#Results
+etable(lm, digits = "r3", cluster = "origin")
+
+#Latex
+etable(lm, digits = "r3", cluster = "origin", tex = TRUE)
+
+
+# Might be useful --------------------------------------------------------------
 
 #Poor --------------------------------------------------------------------------
 g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:poor_5 + SPEIpop_droughts_1.5:poor_5 + SPEIpop_floods_1.5:poor_5|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
@@ -1530,239 +2151,22 @@ g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_flood
 etable(g, g2, g3, digits = "r3", cluster = "origin")
 
 
-
-#Malaria ----
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:malaria_high_5 + SPEIpop_droughts_1.5:malaria_high_5 + SPEIpop_floods_1.5:malaria_high_5|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:malaria_high_5 + SPEI04pop_droughts_0.5:malaria_high_5 + SPEI04pop_floods_0.5:malaria_high_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:malaria_high_5 + SPEI04v2pop_droughts_1:malaria_high_5 + SPEI04v2pop_floods_0.5:malaria_high_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:malaria_high_4 + SPEIpop_droughts_1.5:malaria_high_4 + SPEIpop_floods_1.5:malaria_high_4|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:malaria_high_4 + SPEI04pop_droughts_0.5:malaria_high_4 + SPEI04pop_floods_0.5:malaria_high_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:malaria_high_4 + SPEI04v2pop_droughts_1:malaria_high_4 + SPEI04v2pop_floods_0.5:malaria_high_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:malaria_high_5 + SPEIpop_droughts_1.5:malaria_high_3 + SPEIpop_floods_1.5:malaria_high_3|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:malaria_high_3 + SPEI04pop_droughts_0.5:malaria_high_3 + SPEI04pop_floods_0.5:malaria_high_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:malaria_high_3 + SPEI04v2pop_droughts_1:malaria_high_3 + SPEI04v2pop_floods_0.5:malaria_high_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#Lags
-#Malaria is a great candidate
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:malaria_high_5 + SPEIpop_droughts_1.5:malaria_high_5 + SPEIpop_floods_1.5:malaria_high_5 + SPEIpop_lag1:malaria_high_5 + SPEIpop_droughts_1.5_lag1:malaria_high_5 + SPEIpop_floods_1.5_lag1:malaria_high_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:malaria_high_5 + SPEI04pop_droughts_0.5:malaria_high_5 + SPEI04pop_floods_0.5:malaria_high_5 +  SPEI04pop_lag1:malaria_high_5 + SPEI04pop_droughts_0.5_lag1:malaria_high_5 + SPEI04pop_floods_0.5_lag1:malaria_high_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:malaria_high_5 + SPEI04v2pop_droughts_1:malaria_high_5 + SPEI04v2pop_floods_0.5:malaria_high_5 + SPEI04v2pop_lag1:malaria_high_5 + SPEI04v2pop_droughts_1_lag1:malaria_high_5 + SPEI04v2pop_floods_0.5_lag1:malaria_high_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:malaria_high_4 + SPEIpop_droughts_1.5:malaria_high_4 + SPEIpop_floods_1.5:malaria_high_4 + SPEIpop_lag1:malaria_high_4 + SPEIpop_droughts_1.5_lag1:malaria_high_4 + SPEIpop_floods_1.5_lag1:malaria_high_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:malaria_high_4 + SPEI04pop_droughts_0.5:malaria_high_4 + SPEI04pop_floods_0.5:malaria_high_4 +  SPEI04pop_lag1:malaria_high_4 + SPEI04pop_droughts_0.5_lag1:malaria_high_4 + SPEI04pop_floods_0.5_lag1:malaria_high_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:malaria_high_4 + SPEI04v2pop_droughts_1:malaria_high_4 + SPEI04v2pop_floods_0.5:malaria_high_4 + SPEI04v2pop_lag1:malaria_high_4 + SPEI04v2pop_droughts_1_lag1:malaria_high_4 + SPEI04v2pop_floods_0.5_lag1:malaria_high_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:malaria_high_3 + SPEIpop_droughts_1.5:malaria_high_3 + SPEIpop_floods_1.5:malaria_high_3 + SPEIpop_lag1:malaria_high_3 + SPEIpop_droughts_1.5_lag1:malaria_high_3 + SPEIpop_floods_1.5_lag1:malaria_high_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:malaria_high_3 + SPEI04pop_droughts_0.5:malaria_high_3 + SPEI04pop_floods_0.5:malaria_high_3 +  SPEI04pop_lag1:malaria_high_3 + SPEI04pop_droughts_0.5_lag1:malaria_high_3 + SPEI04pop_floods_0.5_lag1:malaria_high_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:malaria_high_3 + SPEI04v2pop_droughts_1:malaria_high_3 + SPEI04v2pop_floods_0.5:malaria_high_3 + SPEI04v2pop_lag1:malaria_high_3 + SPEI04v2pop_droughts_1_lag1:malaria_high_3 + SPEI04v2pop_floods_0.5_lag1:malaria_high_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#%
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:incidence + SPEIpop_droughts_1.5:incidence + SPEIpop_floods_1.5:incidence + SPEIpop_lag1:incidence + SPEIpop_droughts_1.5_lag1:incidence + SPEIpop_floods_1.5_lag1:incidence |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:incidence + SPEI04pop_droughts_0.5:incidence + SPEI04pop_floods_0.5:incidence +  SPEI04pop_lag1:incidence + SPEI04pop_droughts_0.5_lag1:incidence + SPEI04pop_floods_0.5_lag1:incidence |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:incidence + SPEI04v2pop_droughts_1:incidence + SPEI04v2pop_floods_0.5:incidence + SPEI04v2pop_lag1:incidence + SPEI04v2pop_droughts_1_lag1:incidence + SPEI04v2pop_floods_0.5_lag1:incidence |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-
-#Rural state ----
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:rural_5 + SPEIpop_droughts_1.5:rural_5 + SPEIpop_floods_1.5:rural_5|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:rural_5 + SPEI04pop_droughts_0.5:rural_5 + SPEI04pop_floods_0.5:rural_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:rural_5 + SPEI04v2pop_droughts_1:rural_5 + SPEI04v2pop_floods_0.5:rural_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:rural_4 + SPEIpop_droughts_1.5:rural_4 + SPEIpop_floods_1.5:rural_4|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:rural_4 + SPEI04pop_droughts_0.5:rural_4 + SPEI04pop_floods_0.5:rural_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:rural_4 + SPEI04v2pop_droughts_1:rural_4 + SPEI04v2pop_floods_0.5:rural_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:rural_3 + SPEIpop_droughts_1.5:rural_3 + SPEIpop_floods_1.5:rural_3|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:rural_3 + SPEI04pop_droughts_0.5:rural_3 + SPEI04pop_floods_0.5:rural_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:rural_3 + SPEI04v2pop_droughts_1:rural_3 + SPEI04v2pop_floods_0.5:rural_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#Lags
-#Rural is a great one
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:rural_5 + SPEIpop_droughts_1.5:rural_5 + SPEIpop_floods_1.5:rural_5 + SPEIpop_lag1:rural_5 + SPEIpop_droughts_1.5_lag1:rural_5 + SPEIpop_floods_1.5_lag1:rural_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:rural_5 + SPEI04pop_droughts_0.5:rural_5 + SPEI04pop_floods_0.5:rural_5 +  SPEI04pop_lag1:rural_5 + SPEI04pop_droughts_0.5_lag1:rural_5 + SPEI04pop_floods_0.5_lag1:rural_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:rural_5 + SPEI04v2pop_droughts_1:rural_5 + SPEI04v2pop_floods_0.5:rural_5 + SPEI04v2pop_lag1:rural_5 + SPEI04v2pop_droughts_1_lag1:rural_5 + SPEI04v2pop_floods_0.5_lag1:rural_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:rural_4 + SPEIpop_droughts_1.5:rural_4 + SPEIpop_floods_1.5:rural_4 + SPEIpop_lag1:rural_4 + SPEIpop_droughts_1.5_lag1:rural_4 + SPEIpop_floods_1.5_lag1:rural_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:rural_4 + SPEI04pop_droughts_0.5:rural_4 + SPEI04pop_floods_0.5:rural_4 +  SPEI04pop_lag1:rural_4 + SPEI04pop_droughts_0.5_lag1:rural_4 + SPEI04pop_floods_0.5_lag1:rural_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:rural_4 + SPEI04v2pop_droughts_1:rural_4 + SPEI04v2pop_floods_0.5:rural_4 + SPEI04v2pop_lag1:rural_4 + SPEI04v2pop_droughts_1_lag1:rural_4 + SPEI04v2pop_floods_0.5_lag1:rural_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:rural_3 + SPEIpop_droughts_1.5:rural_3 + SPEIpop_floods_1.5:rural_3 + SPEIpop_lag1:rural_3 + SPEIpop_droughts_1.5_lag1:rural_3 + SPEIpop_floods_1.5_lag1:rural_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:rural_3 + SPEI04pop_droughts_0.5:rural_3 + SPEI04pop_floods_0.5:rural_3 +  SPEI04pop_lag1:rural_3 + SPEI04pop_droughts_0.5_lag1:rural_3 + SPEI04pop_floods_0.5_lag1:rural_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:rural_3 + SPEI04v2pop_droughts_1:rural_3 + SPEI04v2pop_floods_0.5:rural_3 + SPEI04v2pop_lag1:rural_3 + SPEI04v2pop_droughts_1_lag1:rural_3 + SPEI04v2pop_floods_0.5_lag1:rural_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#%
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:urban + SPEIpop_droughts_1.5:urban + SPEIpop_floods_1.5:urban + SPEIpop_lag1:urban + SPEIpop_droughts_1.5_lag1:urban + SPEIpop_floods_1.5_lag1:urban |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:urban + SPEI04pop_droughts_0.5:urban + SPEI04pop_floods_0.5:urban +  SPEI04pop_lag1:urban + SPEI04pop_droughts_0.5_lag1:urban + SPEI04pop_floods_0.5_lag1:urban |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:urban + SPEI04v2pop_droughts_1:urban + SPEI04v2pop_floods_0.5:urban + SPEI04v2pop_lag1:urban + SPEI04v2pop_droughts_1_lag1:urban + SPEI04v2pop_floods_0.5_lag1:urban |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-
-#Agri --------------------------------------------------------------------------
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:agri_5 + SPEIpop_droughts_1.5:agri_5 + SPEIpop_floods_1.5:agri_5|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:agri_5 + SPEI04pop_droughts_0.5:agri_5 + SPEI04pop_floods_0.5:agri_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:agri_5 + SPEI04v2pop_droughts_1:agri_5 + SPEI04v2pop_floods_0.5:agri_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:agri_4 + SPEIpop_droughts_1.5:agri_4 + SPEIpop_floods_1.5:agri_4|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:agri_4 + SPEI04pop_droughts_0.5:agri_4 + SPEI04pop_floods_0.5:agri_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:agri_4 + SPEI04v2pop_droughts_1:agri_4 + SPEI04v2pop_floods_0.5:agri_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop:agri_3 + SPEIpop_droughts_1.5:agri_3 + SPEIpop_floods_1.5:agri_3|  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 + SPEI04pop:agri_3 + SPEI04pop_droughts_0.5:agri_3 + SPEI04pop_floods_0.5:agri_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop:agri_3 + SPEI04v2pop_droughts_1:agri_3 + SPEI04v2pop_floods_0.5:agri_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#Lags
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:agri_5 + SPEIpop_droughts_1.5:agri_5 + SPEIpop_floods_1.5:agri_5 + SPEIpop_lag1:agri_5 + SPEIpop_droughts_1.5_lag1:agri_5 + SPEIpop_floods_1.5_lag1:agri_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:agri_5 + SPEI04pop_droughts_0.5:agri_5 + SPEI04pop_floods_0.5:agri_5 +  SPEI04pop_lag1:agri_5 + SPEI04pop_droughts_0.5_lag1:agri_5 + SPEI04pop_floods_0.5_lag1:agri_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:agri_5 + SPEI04v2pop_droughts_1:agri_5 + SPEI04v2pop_floods_0.5:agri_5 + SPEI04v2pop_lag1:agri_5 + SPEI04v2pop_droughts_1_lag1:agri_5 + SPEI04v2pop_floods_0.5_lag1:agri_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:agri_4 + SPEIpop_droughts_1.5:agri_4 + SPEIpop_floods_1.5:agri_4 + SPEIpop_lag1:agri_4 + SPEIpop_droughts_1.5_lag1:agri_4 + SPEIpop_floods_1.5_lag1:agri_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:agri_4 + SPEI04pop_droughts_0.5:agri_4 + SPEI04pop_floods_0.5:agri_4 +  SPEI04pop_lag1:agri_4 + SPEI04pop_droughts_0.5_lag1:agri_4 + SPEI04pop_floods_0.5_lag1:agri_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:agri_4 + SPEI04v2pop_droughts_1:agri_4 + SPEI04v2pop_floods_0.5:agri_4 + SPEI04v2pop_lag1:agri_4 + SPEI04v2pop_droughts_1_lag1:agri_4 + SPEI04v2pop_floods_0.5_lag1:agri_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:agri_3 + SPEIpop_droughts_1.5:agri_3 + SPEIpop_floods_1.5:agri_3 + SPEIpop_lag1:agri_3 + SPEIpop_droughts_1.5_lag1:agri_3 + SPEIpop_floods_1.5_lag1:agri_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:agri_3 + SPEI04pop_droughts_0.5:agri_3 + SPEI04pop_floods_0.5:agri_3 +  SPEI04pop_lag1:agri_3 + SPEI04pop_droughts_0.5_lag1:agri_3 + SPEI04pop_floods_0.5_lag1:agri_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:agri_3 + SPEI04v2pop_droughts_1:agri_3 + SPEI04v2pop_floods_0.5:agri_3 + SPEI04v2pop_lag1:agri_3 + SPEI04v2pop_droughts_1_lag1:agri_3 + SPEI04v2pop_floods_0.5_lag1:agri_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#%
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:GDP_agri_per + SPEIpop_droughts_1.5:GDP_agri_per + SPEIpop_floods_1.5:GDP_agri_per + SPEIpop_lag1:GDP_agri_per + SPEIpop_droughts_1.5_lag1:GDP_agri_per + SPEIpop_floods_1.5_lag1:GDP_agri_per |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:GDP_agri_per + SPEI04pop_droughts_0.5:GDP_agri_per + SPEI04pop_floods_0.5:GDP_agri_per +  SPEI04pop_lag1:GDP_agri_per + SPEI04pop_droughts_0.5_lag1:GDP_agri_per + SPEI04pop_floods_0.5_lag1:GDP_agri_per |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:GDP_agri_per + SPEI04v2pop_droughts_1:GDP_agri_per + SPEI04v2pop_floods_0.5:GDP_agri_per + SPEI04v2pop_lag1:GDP_agri_per + SPEI04v2pop_droughts_1_lag1:GDP_agri_per + SPEI04v2pop_floods_0.5_lag1:GDP_agri_per |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#Irrigation --------------------------------------------------------------------
-
-#Lags
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:irr_5 + SPEIpop_droughts_1.5:irr_5 + SPEIpop_floods_1.5:irr_5 + SPEIpop_lag1:irr_5 + SPEIpop_droughts_1.5_lag1:irr_5 + SPEIpop_floods_1.5_lag1:irr_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:irr_5 + SPEI04pop_droughts_0.5:irr_5 + SPEI04pop_floods_0.5:irr_5 +  SPEI04pop_lag1:irr_5 + SPEI04pop_droughts_0.5_lag1:irr_5 + SPEI04pop_floods_0.5_lag1:irr_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:irr_5 + SPEI04v2pop_droughts_1:irr_5 + SPEI04v2pop_floods_0.5:irr_5 + SPEI04v2pop_lag1:irr_5 + SPEI04v2pop_droughts_1_lag1:irr_5 + SPEI04v2pop_floods_0.5_lag1:irr_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:irr_4 + SPEIpop_droughts_1.5:irr_4 + SPEIpop_floods_1.5:irr_4 + SPEIpop_lag1:irr_4 + SPEIpop_droughts_1.5_lag1:irr_4 + SPEIpop_floods_1.5_lag1:irr_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:irr_4 + SPEI04pop_droughts_0.5:irr_4 + SPEI04pop_floods_0.5:irr_4 +  SPEI04pop_lag1:irr_4 + SPEI04pop_droughts_0.5_lag1:irr_4 + SPEI04pop_floods_0.5_lag1:irr_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:irr_4 + SPEI04v2pop_droughts_1:irr_4 + SPEI04v2pop_floods_0.5:irr_4 + SPEI04v2pop_lag1:irr_4 + SPEI04v2pop_droughts_1_lag1:irr_4 + SPEI04v2pop_floods_0.5_lag1:irr_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:irr_3 + SPEIpop_droughts_1.5:irr_3 + SPEIpop_floods_1.5:irr_3 + SPEIpop_lag1:irr_3 + SPEIpop_droughts_1.5_lag1:irr_3 + SPEIpop_floods_1.5_lag1:irr_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:irr_3 + SPEI04pop_droughts_0.5:irr_3 + SPEI04pop_floods_0.5:irr_3 +  SPEI04pop_lag1:irr_3 + SPEI04pop_droughts_0.5_lag1:irr_3 + SPEI04pop_floods_0.5_lag1:irr_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:irr_3 + SPEI04v2pop_droughts_1:irr_3 + SPEI04v2pop_floods_0.5:irr_3 + SPEI04v2pop_lag1:irr_3 + SPEI04v2pop_droughts_1_lag1:irr_3 + SPEI04v2pop_floods_0.5_lag1:irr_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#%
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:GDP_agri_per + SPEIpop_droughts_1.5:GDP_agri_per + SPEIpop_floods_1.5:GDP_agri_per + SPEIpop_lag1:GDP_agri_per + SPEIpop_droughts_1.5_lag1:GDP_agri_per + SPEIpop_floods_1.5_lag1:GDP_agri_per |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:GDP_agri_per + SPEI04pop_droughts_0.5:GDP_agri_per + SPEI04pop_floods_0.5:GDP_agri_per +  SPEI04pop_lag1:GDP_agri_per + SPEI04pop_droughts_0.5_lag1:GDP_agri_per + SPEI04pop_floods_0.5_lag1:GDP_agri_per |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:GDP_agri_per + SPEI04v2pop_droughts_1:GDP_agri_per + SPEI04v2pop_floods_0.5:GDP_agri_per + SPEI04v2pop_lag1:GDP_agri_per + SPEI04v2pop_droughts_1_lag1:GDP_agri_per + SPEI04v2pop_floods_0.5_lag1:GDP_agri_per |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#%
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 + SPEIpop:irr + SPEIpop_droughts_1.5:irr + SPEIpop_floods_1.5:irr + SPEIpop_lag1:irr + SPEIpop_droughts_1.5_lag1:irr + SPEIpop_floods_1.5_lag1:irr |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 + SPEI04pop:irr + SPEI04pop_droughts_0.5:irr + SPEI04pop_floods_0.5:irr +  SPEI04pop_lag1:irr + SPEI04pop_droughts_0.5_lag1:irr + SPEI04pop_floods_0.5_lag1:irr |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop:irr + SPEI04v2pop_droughts_1:irr + SPEI04v2pop_floods_0.5:irr + SPEI04v2pop_lag1:irr + SPEI04v2pop_droughts_1_lag1:irr + SPEI04v2pop_floods_0.5_lag1:irr |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-etable(g, g2, g3, digits = "r3", cluster = "origin")
-
-#Robustness tests --------------------------------------------------------------
-
-
-#8) Appendix ----------------------------------------------------------------
- 
-#8.0) Fixed effects -----------------------------------------------------------
-
-#OLS
-lm <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 + log(distance) + border | sw0(year + origin + destination, origin + destination^year, origin + destination^year + origin^destination), migration)
-etable(lm, cluster = "origin")
-
-#8.1) OLS vs PPML --------------------------------------------------------------
-
-#Droughts-floods 1.5
-lm <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration)
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-lm2 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_zeros)
-g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros)
-
-lm3 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_zeros_75)
-g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros_75)
-
-lm4 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_high)
-g4 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none" ,migration_wo_high)
-
-etable(lm, lm2, lm3, lm4, g, g2, g3, g4, digits = "r3", cluster = "origin")
-
-#Lags
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros)
-g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros_75)
-g4 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_high)
-
-etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
-
-
-g <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros)
-g3 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros_75)
-g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop_droughts_0.5 + SPEI04pop_floods_0.5 +  SPEI04pop_lag1 + SPEI04pop_droughts_0.5_lag1 + SPEI04pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_high)
-
-etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
-
-g <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros)
-g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros_75)
-g4 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_droughts_1 + SPEI04v2pop_floods_0.5 + SPEI04v2pop_lag1 + SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_high)
-
-etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
-
-
 #Tests -------------------------------------------------------------------------
+
+x <- migration %>%
+  mutate(droughts = ifelse(SPEIpop <= -1.5, SPEIpop, 0),
+         normal = ifelse(SPEIpop > -1.5 & SPEIpop < 1.5, SPEIpop, 0),
+         floods = ifelse(SPEIpop >= 1.5, SPEIpop, 0),
+         droughts_lag1 = ifelse(SPEIpop_lag1 <= -1.5, SPEIpop_lag1, 0),
+         normal_lag1 = ifelse(SPEIpop_lag1 > -1.5 & SPEIpop_lag1 < 1.5, SPEIpop_lag1, 0),
+         floods_lag1 = ifelse(SPEIpop_lag1 >= 1.5, SPEIpop_lag1, 0))
+
+
+g <- fepois(migrates ~ normal + normal_lag1 + droughts + droughts_lag1 + floods + floods_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", x)
+
+etable(g, digits = "r3", cluster = "origin")
+
+
 #Correlation matrices
 
  
@@ -1781,3 +2185,46 @@ etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
 # selected_data <- migration[c("malaria_high_4", "agri_high_4", "GDP_high_4", "poor_4")]
 # correlation_matrix <- round(cor(selected_data), 2)
 # print(correlation_matrix)
+
+
+#different SD 
+g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_0.5 + mvsw(SPEIpop_droughts_1.5, SPEIpop_floods_1.5) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_1 + mvsw(SPEIpop_droughts_1.5, SPEIpop_floods_2) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_1.5 + mvsw(SPEIpop_droughts_1.5) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, g2, g3, digits = "r3", cluster = "origin")
+
+
+g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_0.5 + mvsw(SPEIpop_droughts_2, SPEIpop_floods_1.5) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_1 + mvsw(SPEIpop_droughts_2, SPEIpop_floods_2) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_1.5 + mvsw(SPEIpop_droughts_2) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, g2, g3, digits = "r3", cluster = "origin")
+
+
+g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_0.5 + mvsw(SPEIpop_floods_1.5) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1 + mvsw(SPEIpop_floods_2) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, g2, g3, digits = "r3", cluster = "origin")
+
+#Lags
+g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_0.5 +  SPEIpop_lag1 + SPEIpop_droughts_0.5_lag1 + SPEIpop_floods_0.5_lag1 + mvsw(SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1, SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_1 + SPEIpop_lag1 + SPEIpop_droughts_0.5_lag1 + SPEIpop_floods_1_lag1 + mvsw(SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1, SPEIpop_floods_2 + SPEIpop_floods_2_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_0.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_0.5_lag1 + SPEIpop_floods_1.5_lag1 + mvsw(SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, g2, g3, digits = "r3", cluster = "origin")
+
+
+g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_0.5 + SPEIpop_lag1 + SPEIpop_droughts_1_lag1 + SPEIpop_floods_0.5_lag1 + mvsw(SPEIpop_droughts_2 + SPEIpop_droughts_2_lag1, SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_1 + SPEIpop_lag1 + SPEIpop_droughts_1_lag1 + SPEIpop_floods_1_lag1 + mvsw(SPEIpop_droughts_2 + SPEIpop_droughts_2_lag1, SPEIpop_floods_2 + SPEIpop_floods_2_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1_lag1 + SPEIpop_floods_1.5_lag1 + mvsw(SPEIpop_droughts_2 + SPEIpop_droughts_2_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, g2, g3, digits = "r3", cluster = "origin")
+
+
+g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_0.5 +  SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_0.5_lag1 + mvsw(SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1_lag1 + mvsw(SPEIpop_floods_2 + SPEIpop_floods_2_lag1) |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEIpop_floods_1.5 + SPEIpop_lag1 + SPEIpop_droughts_1.5_lag1 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, g2, g3, digits = "r3", cluster = "origin")
