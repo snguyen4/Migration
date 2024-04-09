@@ -1259,7 +1259,7 @@ desc <- migration_desc %>%
          SPEIpop, SPEIpop_droughts_1.5, SPEIpop_floods_1.5,
          SPEI04pop, SPEI04pop_droughts_0.5, SPEI04_floods_0.5,
          SPEI04v2, SPEI04v2_droughts_1, SPEI04v2_floods_0.5,
-         rural, agri, GDP_agri_per, irr, incidence)
+         rural, agri, GDP_agri_per, income, incidence)
 
 describe(desc)
 
@@ -1296,7 +1296,7 @@ color_palette <- c("Positive" = "blue", "Negative" = "red")
 # Create bar plot
 plot_spei <- ggplot(data = plot_spei, aes(x = year, y = SPEI, fill = color)) +
   geom_col() +
-  labs(title = "SPEI, 12 months", x = "Year") +
+  labs(title = "12-month SPEI", x = "Year") +
   theme_minimal() +
   guides(fill = "none") +  # Remove the legend
   scale_x_continuous(breaks = seq(min(plot_spei$year), max(plot_spei$year), by = 3))
@@ -1314,7 +1314,7 @@ plot_spei_main <- plot_spei_main %>%
 # Create bar plot
 plot_spei_main <- ggplot(data = plot_spei_main, aes(x = year, y = SPEI, fill = color)) +
   geom_col() +
-  labs(title = "SPEI, main growing season", x = "Year") +
+  labs(title = "4-month SPEI", x = "Year", subtitle = "Main rice growing season") +
   theme_minimal() +
   guides(fill = "none") +  # Remove the legend
   scale_x_continuous(breaks = seq(min(plot_spei_main$year), max(plot_spei_main$year), by = 3))
@@ -1334,7 +1334,7 @@ plot_spei_off <- plot_spei_off %>%
 # Create bar plot
 plot_spei_off <- ggplot(data = plot_spei_off, aes(x = year, y = SPEI, fill = color)) +
   geom_col() +
-  labs(title = "SPEI, secondary growing season", x = "Year") +
+  labs(title = "4-month SPEI", x = "Year", subtitle = "Secondary rice growing season") +
   theme_minimal() +
   guides(fill = "none") +  # Remove the legend
   scale_x_continuous(breaks = seq(min(plot_spei_off$year), max(plot_spei_off$year), by = 3))
@@ -1343,11 +1343,50 @@ plot_spei_off <- ggplot(data = plot_spei_off, aes(x = year, y = SPEI, fill = col
 grid.arrange(plot_spei, plot_spei_main, plot_spei_off, ncol = 2)
 
 
+
+
+
 # # Maps ----
+
+# #Migrates
+# migration_plot <- migration %>%
+#   select(year, origin, flow, Niit) %>%
+#   group_by(origin, year) %>%
+#   summarise(outflow = sum(flow), Niit = mean(Niit)) %>%
+#   mutate(outmig = outflow / Niit)
 # 
-# #By year
-# #Making a map showing SPEI in 2010
-# #Merge SPEI values with shapefile
+# merged_data_migrates <- merge(MY_sf, migration_plot, by.x = "NAME_1", by.y = "origin")
+# 
+# # Create a list to store all the plots
+# plot_list <- list()
+# 
+# Loop through the years and create individual plots
+# for (i in 2010:2019) {
+#   if (i != 2016 && i != 2018) {
+#     migrates_data <- merged_data_migrates %>%
+#       filter(year == i)
+# 
+#     plot <- ggplot() +
+#       geom_sf(data = migrates_data, aes(fill = outmig), color = "black") +
+#       labs(title = paste("Migration Rates by State"), subtitle = as.character(i)) +
+#       scale_fill_gradient2(low = "white", mid = "grey", high = "black", midpoint = 0, na.value = "gray", limits = c(min(merged_data_migrates$outmig), max(merged_data_migrates$outmig))) +
+#       labs(fill = "Migration Rates") +
+#       theme_bw() +
+#       theme(plot.margin = margin(0, 0, 0, 0))
+# 
+#     plot_list[[as.character(i)]] <- plot
+#   }
+# }
+# 
+# 
+# gridExtra::grid.arrange(grobs = plot_list, ncol = 2)
+
+
+
+
+#By year
+#Making a map showing SPEI in 2010
+#Merge SPEI values with shapefile
 # merged_data_spei <- merge(MY_sf, grids_by_state, by.x = "NAME_1", by.y = "state")
 # 
 # # Create a list to store all the plots
@@ -1355,29 +1394,134 @@ grid.arrange(plot_spei, plot_spei_main, plot_spei_off, ncol = 2)
 # 
 # # Loop through the years and create individual plots
 # for (i in 2010:2019) {
-#   spei_data <- merged_data_spei %>%
-#     filter(year == i)
-#   
-#   plot <- ggplot() +
-#     geom_sf(data = spei_data, aes(fill = SPEIpop), color = "black") +
-#     labs(title = paste("SPEI by State"), subtitle = as.character(i)) +
-#     scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray", limits = c(min(merged_data_spei$SPEIpop), max(merged_data_spei$SPEIpop))) +
-#     labs(fill = "SPEI Value") +
-#     theme_bw() +
-#     theme(plot.margin = margin(0, 0, 0, 0))
-#   
-#   plot_list[[as.character(i)]] <- plot
+#   if (i != 2016 && i != 2018) {
+#     spei_data <- merged_data_spei %>%
+#       filter(year == i)
+#     
+#     plot <- ggplot() +
+#       geom_sf(data = spei_data, aes(fill = SPEIpop), color = "black") +
+#       labs(title = paste("SPEI by State"), subtitle = as.character(i)) +
+#       scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray", limits = c(min(merged_data_spei$SPEIpop), max(merged_data_spei$SPEIpop))) +
+#       labs(fill = "SPEI Value") +
+#       theme_bw() +
+#       theme(plot.margin = margin(0, 0, 0, 0))
+#     
+#     plot_list[[as.character(i)]] <- plot
+#   }
 # }
+# 
 # 
 # # Arrange all the plots in a grid
 # grid.arrange(grobs = plot_list, ncol = 2)
+
+# #Main growing season
+# merged_data_spei_main <- merge(MY_sf, grids_by_state_main, by.x = "NAME_1", by.y = "state")
+# 
+# # Create a list to store all the plots
+# plot_list <- list()
+# 
+# # Loop through the years and create individual plots
+# for (i in 2010:2019) {
+#   if (i != 2016 && i != 2018) {
+#     spei_data <- merged_data_spei_main %>%
+#       filter(year == i)
+#     
+#     plot <- ggplot() +
+#       geom_sf(data = spei_data, aes(fill = SPEI04pop), color = "black") +
+#       labs(title = paste("SPEI by State"), subtitle = as.character(i)) +
+#       scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray", limits = c(min(merged_data_spei_main$SPEI04pop), max(merged_data_spei_main$SPEI04pop))) +
+#       labs(fill = "SPEI Value") +
+#       theme_bw() +
+#       theme(plot.margin = margin(0, 0, 0, 0))
+#     
+#     plot_list[[as.character(i)]] <- plot
+#   }
+# }
 # 
 # 
+# # Arrange all the plots in a grid
+# grid.arrange(grobs = plot_list, ncol = 2)
+
+
+# #Secondary
+# merged_data_spei_off <- merge(MY_sf, grids_by_state_off, by.x = "NAME_1", by.y = "state")
+# 
+# # Create a list to store all the plots
+# plot_list <- list()
+# 
+# # Loop through the years and create individual plots
+# for (i in 2010:2019) {
+#   if (i != 2016 && i != 2018) {
+#     spei_data <- merged_data_spei_off %>%
+#       filter(year == i)
+#     
+#     plot <- ggplot() +
+#       geom_sf(data = spei_data, aes(fill = SPEI04v2pop), color = "black") +
+#       labs(title = paste("SPEI by State"), subtitle = as.character(i)) +
+#       scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray", limits = c(min(merged_data_spei_off$SPEI04v2pop), max(merged_data_spei_off$SPEI04v2pop))) +
+#       labs(fill = "SPEI Value") +
+#       theme_bw() +
+#       theme(plot.margin = margin(0, 0, 0, 0))
+#     
+#     plot_list[[as.character(i)]] <- plot
+#   }
+# }
+# 
+# 
+# # Arrange all the plots in a grid
+# grid.arrange(grobs = plot_list, ncol = 2)
+
+#SPEI over the whole sample, by state.
+
+sample <- grids_by_state %>%
+  group_by(state) %>%
+  summarise(SPEI = mean(SPEIpop))
+
+sample_main <- grids_by_state_main %>%
+  group_by(state) %>%
+  summarise(SPEI = mean(SPEI04pop))
+
+sample_off <- grids_by_state_off %>%
+  group_by(state) %>%
+  summarise(SPEI = mean(SPEI04v2pop))
+
+merged_data_spei_sample <- merge(MY_sf, sample, by.x = "NAME_1", by.y = "state")
+
+merged_data_spei_sample_main <- merge(MY_sf, sample_main, by.x = "NAME_1", by.y = "state")
+
+merged_data_spei_sample_off <- merge(MY_sf, sample_off, by.x = "NAME_1", by.y = "state")
+
+
+
+plot <- ggplot() +
+  geom_sf(data = merged_data_spei_sample, aes(fill = SPEI), color = "black") +
+  labs(title = paste("SPEI by State"), subtitle = "2010-2019, SPEI-12") +
+  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray", limits = c(-0.5, 0.5)) +
+  labs(fill = "SPEI Value") +
+  theme_bw()
+
+plot_main <- ggplot() +
+  geom_sf(data = merged_data_spei_sample_main, aes(fill = SPEI), color = "black") +
+  labs(title = paste("SPEI by State"), subtitle = "2010-2019, SPEI-4") +
+  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray", limits = c(-0.5, 0.5)) +
+  labs(fill = "SPEI Value") +
+  theme_bw()
+
+plot_off <- ggplot() +
+  geom_sf(data = merged_data_spei_sample_off, aes(fill = SPEI), color = "black") +
+  labs(title = paste("SPEI by State"), subtitle = "2010-2019, SPEI-4") +
+  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray", limits = c(-0.5, 0.5)) +
+  labs(fill = "SPEI Value") +
+  theme_bw()
+
+grid.arrange(plot, plot_main, plot_off, ncol = 2)
+
+
 # #Maps vulnerability per region
 # 
 # desc_2010 <- desc %>%
-#   filter(year == 2010) 
-#   
+#   filter(year == 2010)
+# 
 # 
 # #merging with shapefile
 # desc_merged <- merge(MY_sf, desc_2010, by.x = "NAME_1", by.y = "origin")
@@ -1403,10 +1547,10 @@ grid.arrange(plot_spei, plot_spei_main, plot_spei_off, ncol = 2)
 #   scale_fill_gradient(low = "white", high = "red") +  # Adjust the color scale
 #   theme_bw()
 # 
-# plot_irr <- ggplot() +
-#   geom_sf(data = desc_merged, aes(fill = irr), color = "black") +
-#   labs(title = "Irrigation area over total cropland", subtitle = "2010") +
-#   labs(fill = "Share (%)") +
+# plot_income <- ggplot() +
+#   geom_sf(data = desc_merged, aes(fill = income), color = "black") +
+#   labs(title = "Household income", subtitle = "2009") +
+#   labs(fill = "RM") +
 #   scale_fill_gradient(low = "white", high = "red") +  # Adjust the color scale
 #   theme_bw()
 # 
@@ -1420,11 +1564,73 @@ grid.arrange(plot_spei, plot_spei_main, plot_spei_off, ncol = 2)
 # grid.arrange(plot_rural,
 #              plot_agri,
 #              plot_GDP,
-#              plot_irr,
+#              plot_income,
 #              plot_malaria,
 #              ncol = 2)
 
+#Scatter ----
 
+# migration_scatter <- migration %>%
+#   select(year, SPEIpop, origin, flow, Niit) %>%
+#   group_by(origin, year) %>%
+#   summarise(outflow = sum(flow), Niit = mean(Niit), SPEIpop = mean(SPEIpop)) %>%
+#   mutate(outmig = outflow / Niit)
+# 
+# 
+# # Initialize an empty list to store the scatter plots
+# scatter_plot_list <- list()
+# 
+# # Loop through the years
+# for (i in 2010:2019) {
+#   if (i != 2016 && i != 2018) {
+#     # Filter the dataset for the current year
+#     migration_year <- migration_scatter %>%
+#       filter(year == i)
+#     
+#     # Create scatter plot for the current year with centered x-axis at zero
+#     scatter_plot <- ggplot(data = migration_year, aes(x = SPEIpop, y = outmig)) +
+#       geom_point() + # Add points
+#       labs(title = paste("Outmigration vs. SPEI (Year", i, ")"),
+#            x = "SPEI",
+#            y = "Outmigration") +
+#       theme_minimal() +
+#       scale_x_continuous(limits = c(-2, 2)) + # Set x-axis limits
+#       theme(plot.margin = margin(0, 0, 0, 0))
+#     
+#     # Store the scatter plot in the list
+#     scatter_plot_list[[as.character(i)]] <- scatter_plot
+#   }
+# }
+# 
+# # Print the scatter plots
+# grid.arrange(grobs = scatter_plot_list, ncol = 2)
+
+
+#Barplot
+
+# Create a new dataframe for the barplots
+barplot_data <- migration_scatter %>%
+  select(origin, year, SPEIpop, outmig)
+
+# Order the dataframe by origin and year
+barplot_data <- barplot_data %>%
+  arrange(origin, year) %>%
+  filter(year == 2010)
+
+# Create barplots
+barplots <- ggplot(data = barplot_data) +
+  geom_bar(aes(x = interaction(origin, year), y = SPEIpop), stat = "identity", fill = "blue", position = "dodge") +
+  geom_bar(aes(x = interaction(origin, year), y = outmig), stat = "identity", fill = "red", position = "dodge") +
+  labs(title = "SPEIpop and outmig Barplots by Origin and Year",
+       x = "Origin and Year",
+       y = "Values",
+       fill = "Variable") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_wrap(~origin, ncol = 1)
+
+# Print the barplots
+print(barplots)
 
 # 7) Final results ------------------------------------------------------------
 
@@ -1447,48 +1653,100 @@ migration <- migration_save %>%
 g <- fepois(migrates ~ SPEIpop +  SPEIpop_lag1 + 
               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
               SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 + 
-              log(distance) + border | sw0(year + origin + destination, origin + destination^year, origin + destination^year + origin^destination), fixef.rm = "none", migration)
+              log(distance) + border, fixef.rm = "none", migration)
 
-etable(g, cluster = "origin")
+g2 <- fepois(migrates ~ SPEIpop +  SPEIpop_lag1 + 
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+              SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 + 
+              log(distance) + border | origin + destination + year, fixef.rm = "none", migration)
+
+g3 <- fepois(migrates ~ SPEIpop +  SPEIpop_lag1 + 
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+              SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 + 
+              log(distance) + border | origin + destination^year, fixef.rm = "none", migration)
+
+g4 <- fepois(migrates ~ SPEIpop +  SPEIpop_lag1 + 
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+              SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 + 
+              log(distance) + border | origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, g2, g3, g4, cluster = "origin")
 
 #Latex
 etable(g, digits = "r3", cluster = "origin", tex = TRUE)
 
+#wald
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), cluster = "origin")
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
+
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), cluster = "origin")
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
+
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), cluster = "origin")
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
+
+round(sum(coef(g4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(g4, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), cluster = "origin")
+wald(g4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(g4, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
 
 
-#Response function
-#Saving the estimate in a table
-g <- fepois(migrates ~ SPEIpop +  SPEIpop_lag1 + 
-              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
-              SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 | origin + destination^year + origin^destination, fixef.rm = "none", migration)
 
-table <- coeftable(g, cluster = "origin")
-
-# Create a data frame with a range of SPEI values
-spei_values <- data.frame(SPEIpop = seq(-3, 3, by = 0.01))
-
-# Define the estimated coefficients
-slope_droughts <- table[3, 1] + table[1, 1]
-slope_floods <- table[5, 1] + table[1, 1]
-slope_normal <- table[1, 1]
-
-#Calculate predicted values for each segment
-spei_values <- spei_values %>%
-  mutate(marginal = ifelse(spei_values$SPEIpop <= -1.5, (-1.5 * slope_normal) + slope_droughts * (SPEIpop + 1.5),
-                           ifelse(spei_values$SPEIpop >= 1.5, (1.5 * slope_normal) + slope_floods * (SPEIpop - 1.5),
-                                  slope_normal * SPEIpop)))
-
-#Response function plot
-ggplot(spei_values, aes(x = SPEIpop, y = marginal)) +
-  geom_line() +
-  theme_minimal() +
-  labs(x = "SPEI", y = "Migration rates") +
-  geom_hline(yintercept = 0, linetype = 2, colour = "red") +
-  geom_segment(aes(x = -1.5 , xend = 1.5,y = slope_normal, yend = slope_normal), color = "grey") +
-  geom_segment(aes(x = 1.5 , xend = 3,y = slope_floods, yend = slope_floods), color = "grey") +
-  geom_segment(aes(x = -3 , xend = -1.5,y = slope_droughts, yend = slope_droughts), color = "grey") +
-  scale_x_continuous(breaks = seq(-3, 3, by = 0.5)) +
-  scale_y_continuous(breaks = seq(-2, 2, by = 0.5))
+# #Response function
+# #Saving the estimate in a table
+# g <- fepois(migrates ~ SPEIpop +  SPEIpop_lag1 + 
+#               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+#               SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 | origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# table <- coeftable(g, cluster = "origin")
+# 
+# # Create a data frame with a range of SPEI values
+# spei_values <- data.frame(SPEIpop = seq(-3, 3, by = 0.01))
+# 
+# # Define the estimated coefficients
+# slope_droughts <- table[3, 1] + table[1, 1]
+# slope_floods <- table[5, 1] + table[1, 1]
+# slope_normal <- table[1, 1]
+# 
+# #Calculate predicted values for each segment
+# spei_values <- spei_values %>%
+#   mutate(marginal = ifelse(spei_values$SPEIpop <= -1.5, (-1.5 * slope_normal) + slope_droughts * (SPEIpop + 1.5),
+#                            ifelse(spei_values$SPEIpop >= 1.5, (1.5 * slope_normal) + slope_floods * (SPEIpop - 1.5),
+#                                   slope_normal * SPEIpop)))
+# 
+# #Response function plot
+# ggplot(spei_values, aes(x = SPEIpop, y = marginal)) +
+#   geom_line() +
+#   theme_minimal() +
+#   labs(x = "SPEI", y = "Migration rates") +
+#   geom_hline(yintercept = 0, linetype = 2, colour = "red") +
+#   geom_segment(aes(x = -1.5 , xend = 1.5,y = slope_normal, yend = slope_normal), color = "grey") +
+#   geom_segment(aes(x = 1.5 , xend = 3,y = slope_floods, yend = slope_floods), color = "grey") +
+#   geom_segment(aes(x = -3 , xend = -1.5,y = slope_droughts, yend = slope_droughts), color = "grey") +
+#   scale_x_continuous(breaks = seq(-3, 3, by = 0.5)) +
+#   scale_y_continuous(breaks = seq(-2, 2, by = 0.5))
 
 # 7.2) SPEI variations ---------------------------------------------------------
 
@@ -1507,7 +1765,24 @@ etable(g, g2, g3, digits = "r3", cluster = "origin")
 #Latex
 etable(g, g2, g3, digits = "r3", cluster = "origin", tex = TRUE)
 
-wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
+#Wald
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), cluster = "origin")
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
+
+wald(g2, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1"), cluster = "origin")
+wald(g2, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), cluster = "origin")
+wald(g2, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1"), cluster = "origin")
+wald(g2, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), cluster = "origin")
+
+wald(g3, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1"), cluster = "origin")
+wald(g3, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), cluster = "origin")
+wald(g3, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1"), cluster = "origin")
+wald(g3, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), cluster = "origin")
+
+
+
 
 #7.3) Heterogeneous effects ----------------------------------------------------
 
@@ -1534,6 +1809,12 @@ g3 <- fepois(migrates ~ SPEIpop + SPEIpop:agri_sh_3 +
                SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:agri_sh_3 +
                SPEIpop_floods_1.5 + SPEIpop_floods_1.5:agri_sh_3 +  
                SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:agri_sh_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+
+
+
+
+
 
 # etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
 # 
@@ -1562,6 +1843,9 @@ g6 <- fepois(migrates ~ SPEI04pop + SPEI04pop:agri_sh_3 +
               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:agri_sh_3 +
               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:agri_sh_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
 
+
+
+
 # 
 # etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
 
@@ -1585,6 +1869,104 @@ g9 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:agri_sh_3 +
               SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:agri_sh_3 +
               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:agri_sh_3 +   
               SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:agri_sh_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+#Wald
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")
+
+
+
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")
+
+
+
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri_sh"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")
+
+
+
+round(sum(coef(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri_sh", cluster = "origin")
+wald(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")
+
+
+
+round(sum(coef(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri_sh", cluster = "origin")
+wald(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")
+
+
+
+round(sum(coef(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri_sh", cluster = "origin")
+wald(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")
+
+
+
+round(sum(coef(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri_sh", cluster = "origin")
+wald(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")
+
+
+
+round(sum(coef(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri_sh", cluster = "origin")
+wald(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")
+
+
+
+round(sum(coef(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")), digits = 3)
+round(sum(coef(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri_sh", cluster = "origin")
+wald(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri_sh"), cluster = "origin")
+wald(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri_sh", cluster = "origin")
 
 # 
 # etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
@@ -1709,6 +2091,107 @@ g9 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:malaria_high_3 +
 # 
 # etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
 
+
+#Wald
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "malaria_high", cluster = "origin")
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "malaria_high", cluster = "origin")
+
+
+
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "malaria_high", cluster = "origin")
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "malaria_high", cluster = "origin")
+
+
+
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "malaria_high", cluster = "origin")
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "malaria_high"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "malaria_high", cluster = "origin")
+
+
+
+round(sum(coef(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+round(sum(coef(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+wald(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "malaria_high", cluster = "origin")
+wald(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")
+
+
+
+round(sum(coef(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+round(sum(coef(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+wald(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "malaria_high", cluster = "origin")
+wald(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")
+
+
+
+round(sum(coef(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+round(sum(coef(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+wald(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "malaria_high", cluster = "origin")
+wald(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")
+
+
+
+round(sum(coef(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+round(sum(coef(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+wald(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "malaria_high", cluster = "origin")
+wald(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")
+
+
+
+round(sum(coef(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+round(sum(coef(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+wald(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "malaria_high", cluster = "origin")
+wald(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")
+
+
+
+round(sum(coef(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+round(sum(coef(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")), digits = 3)
+round(sum(coef(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")), digits = 3)
+wald(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "malaria_high", cluster = "origin")
+wald(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "malaria_high"), cluster = "origin")
+wald(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "malaria_high", cluster = "origin")
+
+
+
 #Malaria is a great candidate
 
 etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin")
@@ -1808,6 +2291,104 @@ g9 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:rural_3 +
 # 
 # etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
 
+#Wald
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "rural", cluster = "origin")
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "rural", cluster = "origin")
+
+
+
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "rural", cluster = "origin")
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "rural", cluster = "origin")
+
+
+
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "rural", cluster = "origin")
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "rural"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "rural", cluster = "origin")
+
+
+
+round(sum(coef(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+round(sum(coef(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+wald(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "rural", cluster = "origin")
+wald(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")
+
+
+
+round(sum(coef(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+round(sum(coef(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+wald(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "rural", cluster = "origin")
+wald(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")
+
+
+
+round(sum(coef(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+round(sum(coef(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+wald(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "rural", cluster = "origin")
+wald(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")
+
+
+
+round(sum(coef(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+round(sum(coef(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+wald(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "rural", cluster = "origin")
+wald(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")
+
+
+
+round(sum(coef(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+round(sum(coef(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+wald(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "rural", cluster = "origin")
+wald(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")
+
+
+
+round(sum(coef(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+round(sum(coef(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")), digits = 3)
+round(sum(coef(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")), digits = 3)
+wald(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "rural", cluster = "origin")
+wald(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "rural"), cluster = "origin")
+wald(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "rural", cluster = "origin")
+
 
 etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin")
 
@@ -1903,6 +2484,105 @@ g9 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:agri_3 +
 #                SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:GDP_agri_per |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
 # 
 # etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+#Wald
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri", cluster = "origin")
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri", cluster = "origin")
+
+
+
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri", cluster = "origin")
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri", cluster = "origin")
+
+
+
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri", cluster = "origin")
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "agri"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri", cluster = "origin")
+
+
+
+round(sum(coef(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+round(sum(coef(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+wald(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri", cluster = "origin")
+wald(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")
+
+
+
+round(sum(coef(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+round(sum(coef(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+wald(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri", cluster = "origin")
+wald(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")
+
+
+
+round(sum(coef(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+round(sum(coef(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+wald(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "agri", cluster = "origin")
+wald(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")
+
+
+
+round(sum(coef(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+round(sum(coef(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+wald(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri", cluster = "origin")
+wald(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")
+
+
+
+round(sum(coef(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+round(sum(coef(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+wald(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri", cluster = "origin")
+wald(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")
+
+
+
+round(sum(coef(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+round(sum(coef(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")), digits = 3)
+round(sum(coef(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")), digits = 3)
+wald(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "agri", cluster = "origin")
+wald(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "agri"), cluster = "origin")
+wald(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "agri", cluster = "origin")
+
 
 
 #Results
@@ -2080,8 +2760,107 @@ g9 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:poor_3 +
                SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:poor_3 +   
                SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:poor_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
 
-# 
+
 # etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
+
+
+#Wald
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
+
+
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
+
+
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
+
+
+round(sum(coef(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "poor", cluster = "origin")
+wald(g4, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g4, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")
+
+
+
+round(sum(coef(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "poor", cluster = "origin")
+wald(g5, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g5, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")
+
+
+
+round(sum(coef(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5_lag1"), drop = "poor", cluster = "origin")
+wald(g6, drop =  c("SPEI04pop_lag1", "SPEI04pop_droughts_0.5", "SPEI04pop_droughts_0.5_lag1", "SPEI04pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g6, keep =  c("SPEI04pop_lag1", "SPEI04pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")
+
+
+
+round(sum(coef(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "poor", cluster = "origin")
+wald(g7, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g7, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")
+
+
+
+round(sum(coef(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "poor", cluster = "origin")
+wald(g8, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g8, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")
+
+
+
+round(sum(coef(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1_lag1"), drop = "poor", cluster = "origin")
+wald(g9, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_droughts_1_lag1", "SPEI04v2pop_floods_0.5_lag1", "poor"), cluster = "origin")
+wald(g9, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), drop = "poor", cluster = "origin")
 
 etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin")
 
@@ -2094,19 +2873,19 @@ etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin", tex
 
 #8.1) OLS vs PPML --------------------------------------------------------------
 
-lm <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration)
-g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration)
-
-lm2 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_zeros)
-g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros)
-
-lm3 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_zeros_75)
-g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros_75)
-
-lm4 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_high)
-g4 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none" ,migration_wo_high)
-
-etable(lm, lm2, lm3, lm4, g, g2, g3, g4, digits = "r3", cluster = "origin")
+# lm <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration)
+# g <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration)
+# 
+# lm2 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_zeros)
+# g2 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros)
+# 
+# lm3 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_zeros_75)
+# g3 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none", migration_wo_zeros_75)
+# 
+# lm4 <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, migration_wo_high)
+# g4 <- fepois(migrates ~ SPEIpop + SPEIpop_droughts_1.5 + SPEI_floods_1.5 | origin + destination^year + origin^destination, fixef.rm = "none" ,migration_wo_high)
+# 
+# etable(lm, lm2, lm3, lm4, g, g2, g3, g4, digits = "r3", cluster = "origin")
 
 #Lags
 lm <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_lag1 +
@@ -2143,6 +2922,79 @@ etable(lm, lm2, lm3, lm4, g, g2, g3, g4, digits = "r3", cluster = "origin")
 
 etable(lm, lm2, lm3, lm4, g, g2, g3, g4, digits = "r3", cluster = "origin", tex = TRUE)
 
+#Wald
+round(sum(coef(lm, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(lm, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(lm, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(lm, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(lm, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(lm, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(lm, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(lm, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
+round(sum(coef(lm2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(lm2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(lm2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(lm2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(lm2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(lm2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(lm2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(lm2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
+round(sum(coef(lm3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(lm3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(lm3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(lm3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(lm3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(lm3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(lm3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(lm3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
+round(sum(coef(lm4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(lm4, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(lm4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(lm4, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(lm4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(lm4, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(lm4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(lm4, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(g2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(g3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
+round(sum(coef(g4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g4, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(g4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g4, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
 
 #8.2) Area weighted ------------------------------------------------------------
 
@@ -2174,22 +3026,102 @@ etable(g, g2, g3, g4, g5, g6, digits = "r3", cluster = "origin")
 #Latex
 etable(g, g2, g3, g4, g5, g6, digits = "r3", cluster = "origin", tex = TRUE)
 
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
+round(sum(coef(g4, drop =  c("SPEI_lag1", "SPEI_droughts_1.5_lag1", "SPEI_floods_1.5", "SPEI_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI_lag1", "SPEI_droughts_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+round(sum(coef(g4, drop =  c("SPEI_lag1", "SPEI_droughts_1.5", "SPEI_droughts_1.5_lag1", "SPEI_floods_1.5_lag1", "poor"), cluster = "origin")), digits = 3)
+round(sum(coef(g4, keep =  c("SPEI_lag1", "SPEI_floods_1.5_lag1"), drop = "poor", cluster = "origin")), digits = 3)
+wald(g4, drop =  c("SPEI_lag1", "SPEI_droughts_1.5_lag1", "SPEI_floods_1.5", "SPEI_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g4, keep =  c("SPEI_lag1", "SPEI_droughts_1.5_lag1"), drop = "poor", cluster = "origin")
+wald(g4, drop =  c("SPEI_lag1", "SPEI_droughts_1.5", "SPEI_droughts_1.5_lag1", "SPEI_floods_1.5_lag1", "poor"), cluster = "origin")
+wald(g4, keep =  c("SPEI_lag1", "SPEI_floods_1.5_lag1"), drop = "poor", cluster = "origin")
+
 
 #9) Appendix -------------------------------------------------------------------
  
 #9.1) Fixed effects ------------------------------------------------------------
 
 #OLS
-lm <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_lag1 +
-              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
-              SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 + 
-              log(distance) + border | sw0(year + origin + destination, origin + destination^year, origin + destination^year + origin^destination), migration)
+# lm <- feols(IHS_flow_rates ~ SPEIpop + SPEIpop_lag1 +
+#               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+#               SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 + 
+#               log(distance) + border | sw0(year + origin + destination, origin + destination^year, origin + destination^year + origin^destination), migration)
+# 
+# #Results
+# etable(lm, digits = "r3", cluster = "origin")
+# 
+# #Latex
+# etable(lm, digits = "r3", cluster = "origin", tex = TRUE)
 
-#Results
-etable(lm, digits = "r3", cluster = "origin")
+lm <- feols(IHS_flow_rates ~ SPEIpop +  SPEIpop_lag1 + 
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+              SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 + 
+              log(distance) + border, fixef.rm = "none", migration)
+
+lm2 <- feols(IHS_flow_rates ~ SPEIpop +  SPEIpop_lag1 + 
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+               SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 + 
+               log(distance) + border | origin + destination + year, fixef.rm = "none", migration)
+
+lm3 <- feols(IHS_flow_rates ~ SPEIpop +  SPEIpop_lag1 + 
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+               SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 + 
+               log(distance) + border | origin + destination^year, fixef.rm = "none", migration)
+
+lm4 <- feols(IHS_flow_rates ~ SPEIpop +  SPEIpop_lag1 + 
+               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+               SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 + 
+               log(distance) + border | origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(lm, lm2, lm3, lm4, cluster = "origin")
 
 #Latex
-etable(lm, digits = "r3", cluster = "origin", tex = TRUE)
+etable(lm, lm2, lm3, lm4, digits = "r3", cluster = "origin", tex = TRUE)
+
+#wald
+round(sum(coef(lm, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")), digits = 3)
+round(sum(coef(lm, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(lm, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")), digits = 3)
+round(sum(coef(lm, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(lm, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(lm, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), cluster = "origin")
+wald(lm, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(lm, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
+
+round(sum(coef(lm2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")), digits = 3)
+round(sum(coef(lm2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(lm2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")), digits = 3)
+round(sum(coef(lm2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(lm2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(lm2, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), cluster = "origin")
+wald(lm2, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(lm2, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
+
+round(sum(coef(lm3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")), digits = 3)
+round(sum(coef(lm3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(lm3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")), digits = 3)
+round(sum(coef(lm3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(lm3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(lm3, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), cluster = "origin")
+wald(lm3, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(lm3, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
+
+round(sum(coef(lm4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")), digits = 3)
+round(sum(coef(lm4, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+round(sum(coef(lm4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")), digits = 3)
+round(sum(coef(lm4, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), drop = "agri_sh", cluster = "origin")), digits = 3)
+wald(lm4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(lm4, keep =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1"), cluster = "origin")
+wald(lm4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5_lag1", "(Intercept)", "distance", "border"), cluster = "origin")
+wald(lm4, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
 
 
 # Might be useful --------------------------------------------------------------
@@ -2227,6 +3159,10 @@ etable(g, digits = "r3", cluster = "origin")
 # selected_data <- migration[c("malaria_high_4", "agri_high_4", "GDP_high_4", "poor_4")]
 # correlation_matrix <- round(cor(selected_data), 2)
 # print(correlation_matrix)
+
+x <- migration %>%
+  select(year, origin, SPEIpop) %>%
+  filter(year == 2012)
 
 
 #different SD 
