@@ -1296,10 +1296,11 @@ color_palette <- c("Positive" = "blue", "Negative" = "red")
 # Create bar plot
 plot_spei <- ggplot(data = plot_spei, aes(x = year, y = SPEI, fill = color)) +
   geom_col() +
-  labs(title = "12-month SPEI", x = "Year") +
+  labs(title = "12-month SPEI", x = "Year", subtitle = "Baseline specification") +
   theme_minimal() +
   guides(fill = "none") +  # Remove the legend
-  scale_x_continuous(breaks = seq(min(plot_spei$year), max(plot_spei$year), by = 3))
+  scale_x_continuous(breaks = seq(min(plot_spei$year), max(plot_spei$year), by = 3)) +
+  scale_y_continuous(limits = c(-1.5, 1.5), breaks = seq(-1.5, 1.5, by = 0.5))
 
 #Main
 plot_spei_main <- grids_by_state_main %>%
@@ -1317,7 +1318,9 @@ plot_spei_main <- ggplot(data = plot_spei_main, aes(x = year, y = SPEI, fill = c
   labs(title = "4-month SPEI", x = "Year", subtitle = "Main rice growing season") +
   theme_minimal() +
   guides(fill = "none") +  # Remove the legend
-  scale_x_continuous(breaks = seq(min(plot_spei_main$year), max(plot_spei_main$year), by = 3))
+  scale_x_continuous(breaks = seq(min(plot_spei_main$year), max(plot_spei_main$year), by = 3)) +
+  scale_y_continuous(limits = c(-1.5, 1.5), breaks = seq(-1.5, 1.5, by = 0.5))
+
 
 
 
@@ -1337,7 +1340,8 @@ plot_spei_off <- ggplot(data = plot_spei_off, aes(x = year, y = SPEI, fill = col
   labs(title = "4-month SPEI", x = "Year", subtitle = "Secondary rice growing season") +
   theme_minimal() +
   guides(fill = "none") +  # Remove the legend
-  scale_x_continuous(breaks = seq(min(plot_spei_off$year), max(plot_spei_off$year), by = 3))
+  scale_x_continuous(breaks = seq(min(plot_spei_off$year), max(plot_spei_off$year), by = 3)) +
+  scale_y_continuous(limits = c(-1.5, 1.5), breaks = seq(-1.5, 1.5, by = 0.5))
 
 
 grid.arrange(plot_spei, plot_spei_main, plot_spei_off, ncol = 2)
@@ -1384,9 +1388,9 @@ grid.arrange(plot_spei, plot_spei_main, plot_spei_off, ncol = 2)
 
 
 
-#By year
-#Making a map showing SPEI in 2010
-#Merge SPEI values with shapefile
+# # By year
+# # Making a map showing SPEI in 2010
+# # Merge SPEI values with shapefile
 # merged_data_spei <- merge(MY_sf, grids_by_state, by.x = "NAME_1", by.y = "state")
 # 
 # # Create a list to store all the plots
@@ -1397,7 +1401,7 @@ grid.arrange(plot_spei, plot_spei_main, plot_spei_off, ncol = 2)
 #   if (i != 2016 && i != 2018) {
 #     spei_data <- merged_data_spei %>%
 #       filter(year == i)
-#     
+# 
 #     plot <- ggplot() +
 #       geom_sf(data = spei_data, aes(fill = SPEIpop), color = "black") +
 #       labs(title = paste("SPEI by State"), subtitle = as.character(i)) +
@@ -1405,7 +1409,7 @@ grid.arrange(plot_spei, plot_spei_main, plot_spei_off, ncol = 2)
 #       labs(fill = "SPEI Value") +
 #       theme_bw() +
 #       theme(plot.margin = margin(0, 0, 0, 0))
-#     
+# 
 #     plot_list[[as.character(i)]] <- plot
 #   }
 # }
@@ -1413,7 +1417,7 @@ grid.arrange(plot_spei, plot_spei_main, plot_spei_off, ncol = 2)
 # 
 # # Arrange all the plots in a grid
 # grid.arrange(grobs = plot_list, ncol = 2)
-
+# 
 # #Main growing season
 # merged_data_spei_main <- merge(MY_sf, grids_by_state_main, by.x = "NAME_1", by.y = "state")
 # 
@@ -1425,15 +1429,15 @@ grid.arrange(plot_spei, plot_spei_main, plot_spei_off, ncol = 2)
 #   if (i != 2016 && i != 2018) {
 #     spei_data <- merged_data_spei_main %>%
 #       filter(year == i)
-#     
+# 
 #     plot <- ggplot() +
 #       geom_sf(data = spei_data, aes(fill = SPEI04pop), color = "black") +
 #       labs(title = paste("SPEI by State"), subtitle = as.character(i)) +
-#       scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray", limits = c(min(merged_data_spei_main$SPEI04pop), max(merged_data_spei_main$SPEI04pop))) +
+#       scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0, na.value = "gray", limits = c(min(merged_data_spei$SPEIpop), max(merged_data_spei$SPEIpop))) +
 #       labs(fill = "SPEI Value") +
 #       theme_bw() +
 #       theme(plot.margin = margin(0, 0, 0, 0))
-#     
+# 
 #     plot_list[[as.character(i)]] <- plot
 #   }
 # }
@@ -1764,6 +1768,18 @@ etable(g, g2, g3, digits = "r3", cluster = "origin")
 
 #Latex
 etable(g, g2, g3, digits = "r3", cluster = "origin", tex = TRUE)
+
+
+# #test
+# x <- migration %>%
+#   mutate(migrates = migrates * 100000000000000000000000)
+# 
+# g <- fepois(migrates ~ SPEIpop + SPEIpop_lag1 +
+#               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+#               SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", x)
+# 
+# etable(g, digits = "r3", cluster = "origin")
+
 
 #Wald
 wald(g, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5_lag1", "SPEIpop_floods_1.5", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
@@ -3161,8 +3177,7 @@ etable(g, digits = "r3", cluster = "origin")
 # print(correlation_matrix)
 
 x <- migration %>%
-  select(year, origin, SPEIpop) %>%
-  filter(year == 2012)
+  select(year, origin, destination, migrates, flow, pop)
 
 
 #different SD 
