@@ -26,15 +26,18 @@ pacman::p_load(
 # 1) Loading data --------------------------------------------------------------
 
 #SPEI
-r <- rast("c:/Users/samue/Desktop/Dissertation/Migration/Data/spei12.nc")
+# r <- rast("/Users/samuelnguyen/Dissertation/Data/spei12.nc")
+
+r <- rast("/Users/samuelnguyen/Dissertation/Data/spei12.nc")
+
 
 #Population
-population_weights <- rast("c:/Users/samue/Desktop/Dissertation/Migration/Data/gpw_v4_population_density_rev11_2010_30_min.tif")
+population_weights <- rast("/Users/samuelnguyen/Dissertation/Data/gpw_v4_population_density_rev11_2010_30_min.tif")
 
 
 #MY boundary
 MY_sf <-
-  st_read("c:/Users/samue/Desktop/Dissertation/Migration/Data/gadm41_MYS_shp/gadm41_MYS_1.shp") %>%
+  st_read("/Users/samuelnguyen/Dissertation/Data/gadm41_MYS_shp/gadm41_MYS_1.shp") %>%
   st_as_sf() %>%
   st_transform(terra::crs(r))
 
@@ -43,7 +46,7 @@ MY_sf$NAME_1 <- ifelse(MY_sf$NAME_1 == "Trengganu", "Terengganu", MY_sf$NAME_1)
 MY_sf$NAME_1[MY_sf$NAME_1 == "\t\nTerengganu"] <- "Terengganu"
 
 #Loading internal migration flow data
-migration <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/Migration.xlsx")
+migration <- read_excel("/Users/samuelnguyen/Dissertation/Data/Migration.xlsx")
 
 #Year of the report in the excel files -> documented year is the preceding year
 migration$year = migration$year - 1
@@ -55,11 +58,11 @@ migration <- migration %>%
 
 
 #Loading cities data
-cities <- read.csv("c:/Users/samue/Desktop/Dissertation/Migration/Data/MY_cities.csv")
+cities <- read.csv("/Users/samuelnguyen/Dissertation/Data/MY_cities.csv")
 
 #Population 
 #opening excel file
-pop <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/MY - pop.xlsx")
+pop <- read_excel("/Users/samuelnguyen/Dissertation/Data/MY - pop.xlsx")
 
 #Merging with migration dataset
 migration <- migration %>%
@@ -70,7 +73,7 @@ migration <- migration %>%
 
 #SPEI - 24 ---------------------------------------------------------------------
 
-r <- rast("c:/Users/samue/Desktop/Dissertation/Migration/Data/spei24.nc")
+r <- rast("/Users/samuelnguyen/Dissertation/Data/spei24.nc")
 
 #Caclulating State averages
 #Cropping raster layers
@@ -221,7 +224,7 @@ migration <- migration %>%
 
 #SPEI - 04 ---------------------------------------------------------------------
 
-r <- rast("c:/Users/samue/Desktop/Dissertation/Migration/Data/spei04.nc")
+r <- rast("/Users/samuelnguyen/Dissertation/Data/spei04.nc")
 
 #Caclulating State averages
 #Cropping raster layers
@@ -388,7 +391,7 @@ migration <- migration %>%
 
 #SPEI - 04 ---------------------------------------------------------------------
 
-r <- rast("c:/Users/samue/Desktop/Dissertation/Migration/Data/spei04.nc")
+r <- rast("/Users/samuelnguyen/Dissertation/Data/spei04.nc")
 
 #Caclulating State averages
 #Cropping raster layers
@@ -553,9 +556,176 @@ migration <- migration %>%
   left_join(grids_by_state_lag1, by = c("year", "origin" = "state"))
 
 
+#SPEI - 09 ---------------------------------------------------------------------
+
+r <- rast("/Users/samuelnguyen/Dissertation/Data/spei09.nc")
+
+#Caclulating State averages
+#Cropping raster layers
+MY_r <- terra::crop(r, MY_sf)
+
+#Converting to Spatvector
+MY_sv <- vect(MY_sf)
+
+#Extracting values from the raster for each state
+SPEI_by_state <- terra::extract(MY_r, MY_sv, fun = "mean", na.rm = TRUE) 
+
+# SPEI_by_state2 <- terra::extract(MY_r, MY_sv, fun = "mean", weights = TRUE, na.rm = TRUE)
+# rownames(SPEI_by_state2) <- MY_sf$NAME_1
+
+
+#Deleting ID column
+SPEI_by_state <- select(SPEI_by_state, -ID)
+
+#Changing row names to states.
+rownames(SPEI_by_state) <- MY_sf$NAME_1
+
+#Inverting columns and rows
+SPEI_by_state <- SPEI_by_state %>%
+  t() %>%
+  as.data.frame() 
+
+#Adding date column
+start_date <- as.Date("1901-1-1")
+end_date <- as.Date("2022-12-1")
+dates <- seq(start_date, end_date, by = "month")
+dates <- format(dates, "%Y/%m")
+
+SPEI_by_state <- SPEI_by_state %>%
+  mutate(date = dates) %>%
+  relocate(date, .before = 1) 
+
+row.names(SPEI_by_state) <- NULL # resetting row names to initial values.
+
+#Splitting years and months
+SPEI_by_state <- SPEI_by_state %>%
+  separate(date, into = c("year", "month"), sep = "/")
+
+#Lagging the years by 6 months. In the migration survey, migration flows are from
+#July to June next year.
+SPEI_by_state <- SPEI_by_state %>%
+  mutate(year = as.integer(year), month = as.integer(month)) %>%
+  mutate(year = ifelse(month <= 6, year - 1, year))
+
+#Yearly SPEI calculation ---- Keeping the 12 month June SPEI
+SPEI_by_state <- SPEI_by_state %>%
+  filter(month == 6,
+         year >= 2000 & year < 2020) %>%
+  select(- month)
+
+#Adding SPEI at origin state to migration dataset 
+#Transformation to long format
+SPEI_by_state <- SPEI_by_state %>%
+  gather(key = "state", value = "SPEI09", -year)
+
+
+# Convert 'year' in spi_long to numeric
+SPEI_by_state <- SPEI_by_state %>%
+  mutate(year = as.numeric(year))
+
+#Merge datasets
+migration <- migration %>%
+  left_join(SPEI_by_state, by = c("origin" = "state", "year"))
+
+#Population weighted -----
+
+#Cropping the raster
+MY_weights <- terra::crop(population_weights, MY_sf)
+grids_by_state <- terra::extract(MY_r, MY_sv, na.rm = TRUE)
+
+#Extracting density values
+weights_by_state <- terra::extract(MY_weights, MY_sv, na.rm = TRUE, cells = TRUE) 
+
+#Calculating weights
+weights_by_state <- weights_by_state %>%
+  group_by(ID) %>%
+  mutate(gpw_v4_population_density_rev11_2010_30_min = ifelse(cell == 36 & ID == 13, 0, gpw_v4_population_density_rev11_2010_30_min),
+         weights = gpw_v4_population_density_rev11_2010_30_min / sum(gpw_v4_population_density_rev11_2010_30_min)) %>%
+  ungroup() %>%
+  select(-gpw_v4_population_density_rev11_2010_30_min, -ID, -cell)
+
+
+grids_by_state$weights <- weights_by_state$weights
+
+#Calculating weighted average
+grids_by_state <- grids_by_state %>%
+  mutate_at(vars(starts_with("spei")), funs(. * weights)) %>%
+  group_by(ID) %>%
+  summarise_all(sum, na.rm = TRUE) %>%
+  select(-ID, -weights)
+
+#Changing row names to states.
+rownames(grids_by_state) <- MY_sf$NAME_1
+
+#Inverting columns and rows
+grids_by_state <- grids_by_state %>%
+  t() %>%
+  as.data.frame() 
+
+#Adding date column
+start_date <- as.Date("1901-1-1")
+end_date <- as.Date("2022-12-1")
+dates <- seq(start_date, end_date, by = "month")
+dates <- format(dates, "%Y/%m")
+
+grids_by_state <- grids_by_state %>%
+  mutate(date = dates) %>%
+  relocate(date, .before = 1) 
+
+row.names(grids_by_state) <- NULL # resetting row names to initial values.
+
+#Splitting years and months
+grids_by_state <- grids_by_state %>%
+  separate(date, into = c("year", "month"), sep = "/")
+
+#Lagging the years by 6 months. In the migration survey, migration flows are from
+#July to June next year.
+grids_by_state <- grids_by_state %>%
+  mutate(year = as.integer(year), month = as.integer(month)) %>%
+  mutate(year = ifelse(month <= 6, year - 1, year))
+
+#Yearly SPEI calculation ---- Keeping the 12 month June SPEI
+grids_by_state <- grids_by_state %>%
+  filter(month == 6,
+         year >= 2000 & year < 2020) %>%
+  select(- month)
+
+#Adding SPEI at origin state to migration dataset 
+#Transformation to long format
+grids_by_state <- grids_by_state %>%
+  gather(key = "state", value = "SPEI09pop", -year)
+
+
+# Convert 'year' in spi_long to numeric
+grids_by_state_09 <- grids_by_state %>%
+  mutate(year = as.numeric(year),
+         SPEI09pop = as.numeric(SPEI09pop))
+
+
+#Merge datasets
+migration <- migration %>%
+  left_join(grids_by_state_09, by = c("origin" = "state", "year"))
+
+#Lags --------------------------------------------------------------------------
+# First, create two versions of SPEI_by_state with the lags
+SPEI_by_state_lag1 <- SPEI_by_state %>%
+  mutate(year = year + 1) %>%  # Shift the year by 1 to get the previous year's SPEI
+  rename(SPEI09_lag1 = SPEI09)
+
+
+grids_by_state_lag1 <- grids_by_state %>%
+  mutate(year = year + 1) %>%  # Shift the year by 1 to get the previous year's SPEI
+  rename(SPEI09pop_lag1 = SPEI09pop)
+
+# Now, left join the migration_data with SPEI_by_state_lag1 and SPEI_by_state_lag2
+migration <- migration %>%
+  left_join(SPEI_by_state_lag1, by = c("year", "origin" = "state")) %>%
+  left_join(grids_by_state_lag1, by = c("year", "origin" = "state"))
+
+
 # SPEI 12 by state -------------------------------------------------------------
 
-r <- rast("c:/Users/samue/Desktop/Dissertation/Migration/Data/spei12.nc")
+r <- rast("/Users/samuelnguyen/Dissertation/Data/spei12.nc")
 
 #Caclulating State averages
 #Cropping raster layers
@@ -812,6 +982,22 @@ migration <- migration %>%
          SPEI04v2pop_floods_1.5 = ifelse(SPEI04v2pop >= 1.5, SPEI04v2pop - 1.5, 0),
          SPEI04v2pop_droughts_2 = ifelse(SPEI04v2pop <= -2, SPEI04v2pop + 2, 0),
          SPEI04v2pop_floods_2 = ifelse(SPEI04v2pop >= 2, SPEI04v2pop - 2, 0),
+         SPEI09_droughts_0.5 = ifelse(SPEI09 <= -0.5, SPEI09 + 0.5, 0),
+         SPEI09_floods_0.5 = ifelse(SPEI09 >= 0.5, SPEI09 - 0.5, 0),
+         SPEI09_droughts_1 = ifelse(SPEI09 <= -1, SPEI09 + 1, 0),
+         SPEI09_floods_1 = ifelse(SPEI09 >= 1, SPEI09 - 1, 0),
+         SPEI09_droughts_1.5 = ifelse(SPEI09 <= -1.5, SPEI09 + 1.5, 0),
+         SPEI09_floods_1.5 = ifelse(SPEI09 >= 1.5, SPEI09 - 1.5, 0),
+         SPEI09_droughts_2 = ifelse(SPEI09 <= -2, SPEI09 + 2, 0),
+         SPEI09_floods_2 = ifelse(SPEI09 >= 2, SPEI09 - 2, 0),
+         SPEI09pop_droughts_0.5 = ifelse(SPEI09pop <= -0.5, SPEI09pop + 0.5, 0),
+         SPEI09pop_floods_0.5 = ifelse(SPEI09pop >= 0.5, SPEI09pop - 0.5, 0),
+         SPEI09pop_droughts_1 = ifelse(SPEI09pop <= -1, SPEI09pop + 1, 0),
+         SPEI09pop_floods_1 = ifelse(SPEI09pop >= 1, SPEI09pop - 1, 0),
+         SPEI09pop_droughts_1.5 = ifelse(SPEI09pop <= -1.5, SPEI09pop + 1.5, 0),
+         SPEI09pop_floods_1.5 = ifelse(SPEI09pop >= 1.5, SPEI09pop - 1.5, 0),
+         SPEI09pop_droughts_2 = ifelse(SPEI09pop <= -2, SPEI09pop + 2, 0),
+         SPEI09pop_floods_2 = ifelse(SPEI09pop >= 2, SPEI09pop - 2, 0),
          SPEI04pop_droughts_0.5_lag1 = ifelse(SPEI04pop_lag1 <= -0.5, SPEI04pop_lag1 + 0.5, 0),
          SPEI04pop_floods_0.5_lag1 = ifelse(SPEI04pop_lag1 >= 0.5, SPEI04pop_lag1 - 0.5, 0),
          SPEI04pop_droughts_1_lag1 = ifelse(SPEI04pop_lag1 <= -1, SPEI04pop_lag1 + 1, 0),
@@ -843,7 +1029,23 @@ migration <- migration %>%
          SPEI04v2_droughts_1.5_lag1 = ifelse(SPEI04v2_lag1 <= -1.5, SPEI04v2_lag1 + 1.5, 0),
          SPEI04v2_floods_1.5_lag1 = ifelse(SPEI04v2_lag1 >= 1.5, SPEI04v2_lag1 - 1.5, 0),
          SPEI04v2_droughts_2_lag1 = ifelse(SPEI04v2_lag1 <= -2, SPEI04v2_lag1 + 2, 0),
-         SPEI04v2_floods_2_lag1 = ifelse(SPEI04v2_lag1 >= 2, SPEI04v2_lag1 - 2, 0))
+         SPEI04v2_floods_2_lag1 = ifelse(SPEI04v2_lag1 >= 2, SPEI04v2_lag1 - 2, 0),
+         SPEI09pop_droughts_0.5_lag1 = ifelse(SPEI09pop_lag1 <= -0.5, SPEI09pop_lag1 + 0.5, 0),
+         SPEI09pop_floods_0.5_lag1 = ifelse(SPEI09pop_lag1 >= 0.5, SPEI09pop_lag1 - 0.5, 0),
+         SPEI09pop_droughts_1_lag1 = ifelse(SPEI09pop_lag1 <= -1, SPEI09pop_lag1 + 1, 0),
+         SPEI09pop_floods_1_lag1 = ifelse(SPEI09pop_lag1 >= 1, SPEI09pop_lag1 - 1, 0),
+         SPEI09pop_droughts_1.5_lag1 = ifelse(SPEI09pop_lag1 <= -1.5, SPEI09pop_lag1 + 1.5, 0),
+         SPEI09pop_floods_1.5_lag1 = ifelse(SPEI09pop_lag1 >= 1.5, SPEI09pop_lag1 - 1.5, 0),
+         SPEI09pop_droughts_2_lag1 = ifelse(SPEI09pop_lag1 <= -2, SPEI09pop_lag1 + 2, 0),
+         SPEI09pop_floods_2_lag1 = ifelse(SPEI09pop_lag1 >= 2, SPEI09pop_lag1 - 2, 0),
+         SPEI09_droughts_0.5_lag1 = ifelse(SPEI09_lag1 <= -0.5, SPEI09_lag1 + 0.5, 0),
+         SPEI09_floods_0.5_lag1 = ifelse(SPEI09_lag1 >= 0.5, SPEI09_lag1 - 0.5, 0),
+         SPEI09_droughts_1_lag1 = ifelse(SPEI09_lag1 <= -1, SPEI09_lag1 + 1, 0),
+         SPEI09_floods_1_lag1 = ifelse(SPEI09_lag1 >= 1, SPEI09_lag1 - 1, 0),
+         SPEI09_droughts_1.5_lag1 = ifelse(SPEI09_lag1 <= -1.5, SPEI09_lag1 + 1.5, 0),
+         SPEI09_floods_1.5_lag1 = ifelse(SPEI09_lag1 >= 1.5, SPEI09_lag1 - 1.5, 0),
+         SPEI09_droughts_2_lag1 = ifelse(SPEI09_lag1 <= -2, SPEI09_lag1 + 2, 0),
+         SPEI09_floods_2_lag1 = ifelse(SPEI09_lag1 >= 2, SPEI09_lag1 - 2, 0))
 
 # 3) Geographical data --------------------------------------------
 
@@ -962,7 +1164,7 @@ for (i in 1:nrow(migration)) {
 # 4) Additional data for interactions ------------------------------------------
 
 #Value added of agriculture as a share of GDP ----------------------------------
-GDP <- read.csv("c:/Users/samue/Desktop/Dissertation/Migration/Data/GDP.csv")
+GDP <- read.csv("/Users/samuelnguyen/Dissertation/Data/GDP.csv")
 
 putrajaya_gdp <- tibble(
   Year = 2010:2019,
@@ -1004,7 +1206,7 @@ migration <- migration %>%
   left_join(GDP, by = c("origin" = "State")) 
 
 #Income -----------------------------------------------------------------------
-income <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/income.xlsx")
+income <- read_excel("/Users/samuelnguyen/Dissertation/Data/income.xlsx")
 
 income <- income %>%
   filter(year == 2009)
@@ -1055,7 +1257,7 @@ migration <- migration %>%
 
 #Malaria -----------------------------------------------------------------------
 
-malaria <- read.csv("c:/Users/samue/Desktop/Dissertation/Migration/Data/malaria.csv")
+malaria <- read.csv("/Users/samuelnguyen/Dissertation/Data/malaria.csv")
 
 malaria <- malaria %>%
   filter(year == 2010) %>%
@@ -1072,7 +1274,7 @@ migration <- migration %>%
 
 #Urbanization rate -------------------------------------------------------------
 #opening excel file
-urban <- read_excel("c:/Users/samue/Desktop/Dissertation/Migration/Data/Urbanisation2010.xlsx")
+urban <- read_excel("/Users/samuelnguyen/Dissertation/Data/Urbanisation2010.xlsx")
 
 urban <- urban %>%
   filter(year == 2010) 
@@ -1095,47 +1297,8 @@ migration <- migration %>%
   left_join(urban, by = c("origin" = "state"))
 
 
-#Irrigation --------------------------------------------------------------------
-
-CP <- rast("c:/Users/samue/Desktop/Dissertation/Migration/Data/cropland2005AD.asc")
-IR <- rast("c:/Users/samue/Desktop/Dissertation/Migration/Data/AEI_EARTHSTAT_IR_2005.asc")
-
-
-#Cropping the rasters
-MY_CP <- terra::crop(CP, MY_sf)
-MY_IR <- terra::crop(IR, MY_sf)
-
-#Extracting values
-CP_by_state <- terra::extract(MY_CP, MY_sv, na.rm = TRUE)
-IR_by_state <- terra::extract(MY_IR, MY_sv, na.rm = TRUE)
-
-#Percentage of irrigated croplands
-CP_by_state$AEI_EARTHSTAT_IR_2005 <- IR_by_state$AEI_EARTHSTAT_IR_2005
-
-irrigation <- CP_by_state %>%
-  filter(!is.na(cropland2005AD)) %>%
-  group_by(ID) %>%
-  mutate(irrigated = ifelse(cropland2005AD != 0 & AEI_EARTHSTAT_IR_2005 != 0, 1, 0),
-         total_irr = sum(irrigated, na.rm = TRUE),
-         count = n(),
-         irr = total_irr / count) %>%
-  summarise(irr = mean(irr)) %>%
-  mutate(irr = as.numeric(irr),
-         irr_quintile = as.factor(ntile(irr, 5)),
-         irr_quartile = as.factor(ntile(irr, 4)),
-         irr_tertile = as.factor(ntile(irr, 3)),
-         irr_5 = ifelse(irr_quintile == 5, 1, 0),
-         irr_4 = ifelse(irr_quartile == 4, 1, 0),
-         irr_3 = ifelse(irr_tertile == 3, 1, 0))
-
-irrigation$ID <- MY_sf$NAME_1
-
-migration <- migration %>%
-  mutate(year = as.numeric(year)) %>%
-  left_join(irrigation, by = c("origin" = "ID"))
-
 #Agri share of employment ------------------------------------------------------
-agri <- read.csv("c:/Users/samue/Desktop/Dissertation/Migration/Data/Sector_final.csv")
+agri <- read.csv("/Users/samuelnguyen/Dissertation/Data/Sector_final.csv")
 
 putrajaya2010 <- tibble(
   year = 2010,
@@ -1253,8 +1416,7 @@ migration_desc <- migration
 
 desc <- migration_desc %>%
   mutate(migrates = migrates / 10000,
-         GDP_agri_per = GDP_agri_per * 100,
-         irr = irr * 100) %>%
+         GDP_agri_per = GDP_agri_per * 100) %>%
   select(origin, year, migrates,
          SPEIpop, SPEIpop_droughts_1.5, SPEIpop_floods_1.5,
          SPEI04pop, SPEI04pop_droughts_0.5, SPEI04_floods_0.5,
@@ -1265,8 +1427,7 @@ describe(desc)
 
 desc_rural <- migration_desc %>%
   mutate(migrates = migrates / 10000,
-         GDP_agri_per = GDP_agri_per * 100,
-         irr = irr * 100) %>%
+         GDP_agri_per = GDP_agri_per * 100) %>%
   select(origin, year, migrates,
          SPEIpop, SPEIpop_droughts_1.5, SPEIpop_floods_1.5,
          SPEI04pop, SPEI04pop_droughts_0.5, SPEI04_floods_0.5,
@@ -1610,31 +1771,73 @@ grid.arrange(plot, plot_main, plot_off, ncol = 2)
 # grid.arrange(grobs = scatter_plot_list, ncol = 2)
 
 
-#Barplot
+# #Barplot
+# 
+# # Create a new dataframe for the barplots
+# barplot_data <- migration_scatter %>%
+#   select(origin, year, SPEIpop, outmig)
+# 
+# # Order the dataframe by origin and year
+# barplot_data <- barplot_data %>%
+#   arrange(origin, year) %>%
+#   filter(year == 2010)
+# 
+# # Create barplots
+# barplots <- ggplot(data = barplot_data) +
+#   geom_bar(aes(x = interaction(origin, year), y = SPEIpop), stat = "identity", fill = "blue", position = "dodge") +
+#   geom_bar(aes(x = interaction(origin, year), y = outmig), stat = "identity", fill = "red", position = "dodge") +
+#   labs(title = "SPEIpop and outmig Barplots by Origin and Year",
+#        x = "Origin and Year",
+#        y = "Values",
+#        fill = "Variable") +
+#   theme_minimal() +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+#   facet_wrap(~origin, ncol = 1)
+# 
+# # Print the barplots
+# print(barplots)
 
-# Create a new dataframe for the barplots
-barplot_data <- migration_scatter %>%
-  select(origin, year, SPEIpop, outmig)
 
-# Order the dataframe by origin and year
-barplot_data <- barplot_data %>%
-  arrange(origin, year) %>%
-  filter(year == 2010)
+#Boxplots ----
 
-# Create barplots
-barplots <- ggplot(data = barplot_data) +
-  geom_bar(aes(x = interaction(origin, year), y = SPEIpop), stat = "identity", fill = "blue", position = "dodge") +
-  geom_bar(aes(x = interaction(origin, year), y = outmig), stat = "identity", fill = "red", position = "dodge") +
-  labs(title = "SPEIpop and outmig Barplots by Origin and Year",
-       x = "Origin and Year",
-       y = "Values",
-       fill = "Variable") +
+# Create box plot using ggplot2
+ggplot(grids_by_state, aes(y = state, x = SPEIpop, fill = state)) +
+  geom_boxplot() +
+  labs(title = "12-month SPEI",
+       subtitle = "Baseline specification",
+       y = "State",
+       x = "SPEI") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  facet_wrap(~origin, ncol = 1)
+  theme(legend.position = "none") +
+  guides(fill = FALSE)  # Turn off fill legend explicitly
 
-# Print the barplots
-print(barplots)
+
+# Calculate median SPEI for each state
+median_spei <- grids_by_state %>%
+  group_by(state) %>%
+  summarise(median_SPEI = median(SPEIpop))
+
+# Order states by median SPEI (lowest to highest)
+ordered_states <- median_spei %>%
+  arrange(median_SPEI) %>%
+  pull(state)
+
+# Convert 'state' column to factor with ordered levels
+grids_by_state$state <- factor(grids_by_state$state, levels = ordered_states)
+
+# Create box plot with ordered states by median SPEI
+ggplot(grids_by_state, aes(y = state, x = SPEIpop, fill = state)) +
+  geom_boxplot() +
+  labs(title = "12-month SPEI",
+       subtitle = "Baseline specification",
+       y = "State",
+       x = "SPEI") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  guides(fill = FALSE)  # Turn off fill legend explicitly
+
 
 # 7) Final results ------------------------------------------------------------
 
@@ -1717,41 +1920,6 @@ wald(g4, drop =  c("SPEIpop_lag1", "SPEIpop_droughts_1.5", "SPEIpop_droughts_1.5
 wald(g4, keep =  c("SPEIpop_lag1", "SPEIpop_floods_1.5_lag1"), cluster = "origin")
 
 
-
-# #Response function
-# #Saving the estimate in a table
-# g <- fepois(migrates ~ SPEIpop +  SPEIpop_lag1 + 
-#               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
-#               SPEIpop_floods_1.5 +  SPEIpop_floods_1.5_lag1 | origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# 
-# table <- coeftable(g, cluster = "origin")
-# 
-# # Create a data frame with a range of SPEI values
-# spei_values <- data.frame(SPEIpop = seq(-3, 3, by = 0.01))
-# 
-# # Define the estimated coefficients
-# slope_droughts <- table[3, 1] + table[1, 1]
-# slope_floods <- table[5, 1] + table[1, 1]
-# slope_normal <- table[1, 1]
-# 
-# #Calculate predicted values for each segment
-# spei_values <- spei_values %>%
-#   mutate(marginal = ifelse(spei_values$SPEIpop <= -1.5, (-1.5 * slope_normal) + slope_droughts * (SPEIpop + 1.5),
-#                            ifelse(spei_values$SPEIpop >= 1.5, (1.5 * slope_normal) + slope_floods * (SPEIpop - 1.5),
-#                                   slope_normal * SPEIpop)))
-# 
-# #Response function plot
-# ggplot(spei_values, aes(x = SPEIpop, y = marginal)) +
-#   geom_line() +
-#   theme_minimal() +
-#   labs(x = "SPEI", y = "Migration rates") +
-#   geom_hline(yintercept = 0, linetype = 2, colour = "red") +
-#   geom_segment(aes(x = -1.5 , xend = 1.5,y = slope_normal, yend = slope_normal), color = "grey") +
-#   geom_segment(aes(x = 1.5 , xend = 3,y = slope_floods, yend = slope_floods), color = "grey") +
-#   geom_segment(aes(x = -3 , xend = -1.5,y = slope_droughts, yend = slope_droughts), color = "grey") +
-#   scale_x_continuous(breaks = seq(-3, 3, by = 0.5)) +
-#   scale_y_continuous(breaks = seq(-2, 2, by = 0.5))
-
 # 7.2) SPEI variations ---------------------------------------------------------
 
 g <- fepois(migrates ~ SPEIpop + SPEIpop_lag1 +
@@ -1798,6 +1966,41 @@ wald(g3, drop =  c("SPEI04v2pop_lag1", "SPEI04v2pop_droughts_1", "SPEI04v2pop_dr
 wald(g3, keep =  c("SPEI04v2pop_lag1", "SPEI04v2pop_floods_0.5_lag1"), cluster = "origin")
 
 
+#Test --------------------------------------------------------------------------
+
+g <- fepois(migrates ~ SPEIpop + SPEIpop_lag1 +
+              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5_lag1 +
+              SPEIpop_floods_1.5 + SPEIpop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g2 <- fepois(migrates ~ SPEI04pop + SPEI04pop_lag1 +
+               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5_lag1 +
+               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+g3 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop_lag1 +
+               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1_lag1 +
+               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+
+etable(g, g2, g3, digits = "r3", cluster = "origin")
+
+
+g <- fepois(migrates ~ SPEI04pop + SPEI04pop_lag1 +
+              SPEI04pop_droughts_1 + SPEI04pop_droughts_1_lag1 +
+              SPEI04pop_floods_1.5 + SPEI04pop_floods_1.5_lag1 +
+              SPEI04v2pop + SPEI04v2pop_lag1 +
+              SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1_lag1 +
+              SPEI04v2pop_floods_1.5 + SPEI04v2pop_floods_1.5_lag1|   origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, digits = "r3", cluster = "origin")
+
+g <- fepois(migrates ~ SPEI09pop + SPEI09pop_lag1 +
+              SPEI09pop_droughts_1.5 + SPEI09pop_droughts_1.5_lag1 +
+              SPEI09pop_floods_1.5 + SPEI09pop_floods_1.5_lag1 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
+
+etable(g, digits = "r3", cluster = "origin")
+
+
+
+x <- migration %>%
+  select(year, origin, destination, SPEI04_droughts_1_lag1)
 
 
 #7.3) Heterogeneous effects ----------------------------------------------------
@@ -2607,101 +2810,6 @@ etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin")
 #Latex
 etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin", tex = TRUE)
 
-#Irrigation --------------------------------------------------------------------
-#Good results
-
-#SPEI 12
-g <- fepois(migrates ~ SPEIpop + SPEIpop:irr_5 +
-              SPEIpop_lag1 + SPEIpop_lag1:irr_5 +
-              SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:irr_5 +
-              SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:irr_5 +
-              SPEIpop_floods_1.5 + + SPEIpop_floods_1.5:irr_5 +
-              SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:irr_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g2 <- fepois(migrates ~ SPEIpop + SPEIpop:irr_4 +
-               SPEIpop_lag1 + SPEIpop_lag1:irr_4 +
-               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:irr_4 +
-               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:irr_4 +
-               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:irr_4 +
-               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:irr_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g3 <- fepois(migrates ~ SPEIpop + SPEIpop:irr_3 +
-               SPEIpop_lag1 +  SPEIpop_lag1:irr_3 +
-               SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:irr_3 +
-               SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:irr_3 +
-               SPEIpop_floods_1.5 + SPEIpop_floods_1.5:irr_3 +
-               SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:irr_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# g4 <- fepois(migrates ~ SPEIpop + SPEIpop:irr +
-#                SPEIpop_lag1 + SPEIpop_lag1:irr +
-#                SPEIpop_droughts_1.5 + SPEIpop_droughts_1.5:irr +
-#                SPEIpop_droughts_1.5_lag1 + SPEIpop_droughts_1.5_lag1:irr +
-#                SPEIpop_floods_1.5 + SPEIpop_floods_1.5:irr +
-#                SPEIpop_floods_1.5_lag1 + SPEIpop_floods_1.5_lag1:irr |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-#
-# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
-
-
-#Main growing season
-g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop:irr_5 +
-              SPEI04pop_lag1 + SPEI04pop_lag1:irr_5 +
-              SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:irr_5 +
-              SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:irr_5 +
-              SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:irr_5 +
-              SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:irr_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g5 <- fepois(migrates ~ SPEI04pop + SPEI04pop:irr_4 +
-               SPEI04pop_lag1 + SPEI04pop_lag1:irr_4 +
-               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:irr_4 +
-               SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:irr_4 +
-               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:irr_4 +
-               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:irr_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g6 <- fepois(migrates ~ SPEI04pop + SPEI04pop:irr_3 +
-               SPEI04pop_lag1 + SPEI04pop_lag1:irr_3 +
-               SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:irr_3 +
-               SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:irr_3 +
-               SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:irr_3 +
-               SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:irr_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# g4 <- fepois(migrates ~ SPEI04pop + SPEI04pop:irr +
-#                SPEI04pop_lag1 + SPEI04pop_lag1:irr +
-#                SPEI04pop_droughts_0.5 + SPEI04pop_droughts_0.5:irr +
-#                SPEI04pop_droughts_0.5_lag1 + SPEI04pop_droughts_0.5_lag1:irr +
-#                SPEI04pop_floods_0.5 + SPEI04pop_floods_0.5:irr +
-#                SPEI04pop_floods_0.5_lag1 + SPEI04pop_floods_0.5_lag1:irr |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-#
-# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
-
-
-#Off growing season
-g7 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:irr_5 +
-              SPEI04v2pop_lag1 + SPEI04v2pop_lag1:irr_5 +
-              SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:irr_5 +
-              SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:irr_5 +
-              SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:irr_5 +
-              SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:irr_5 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g8 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:irr_4 +
-               SPEI04v2pop_lag1 + SPEI04v2pop_lag1:irr_4 +
-               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:irr_4 +
-               SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:irr_4 +
-               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:irr_4 +
-               SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:irr_4 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-g9 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:irr_3 +
-               SPEI04v2pop_lag1 + SPEI04v2pop_lag1:irr_3 +
-               SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:irr_3 +
-               SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:irr_3 +
-               SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:irr_3 +
-               SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:irr_3 |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-# g4 <- fepois(migrates ~ SPEI04v2pop + SPEI04v2pop:irr +
-#                SPEI04v2pop_lag1 + SPEI04v2pop_lag1:irr +
-#                SPEI04v2pop_droughts_1 + SPEI04v2pop_droughts_1:irr +
-#                SPEI04v2pop_droughts_1_lag1 + SPEI04v2pop_droughts_1_lag1:irr +
-#                SPEI04v2pop_floods_0.5 + SPEI04v2pop_floods_0.5:irr +
-#                SPEI04v2pop_floods_0.5_lag1 + SPEI04v2pop_floods_0.5_lag1:irr |  origin + destination^year + origin^destination, fixef.rm = "none", migration)
-#
-# etable(g, g2, g3, g4, digits = "r3", cluster = "origin")
-
-
-#Results
-etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin")
-
-#Latex
-etable(g, g2, g3, g4, g5, g6, g7, g8, g9, digits = "r3", cluster = "origin", tex = TRUE)
 
 # Poverty --------------------------------------------------------------------
 
